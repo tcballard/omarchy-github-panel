@@ -26,6 +26,17 @@ Item {
     function controls() { var a=[]; reader.keyboardControls(reader,a); return a }
     function named(label) { var a=controls(); for(var i=0;i<a.length;i++) if(a[i].text===label) return a[i]; return null }
     function composer() { var a=controls(); for(var i=0;i<a.length;i++) if(a[i].placeholderText!==undefined) return a[i]; return null }
+    function test_diff_and_thread_controls_open_native_action_menu() {
+      var d=Object.assign({},reader.detail)
+      d.tabs=[{id:"changes",label:"Changes",blocks:[{title:"file.py",body:"L1 R1 context",action:null,operationLabel:"Comment on line…",operations:[
+        {id:"inline-comment",label:"Comment on a diff line",description:"file.py",expected:{},fields:[{key:"body",label:"Comment",value:"",required:true,multiline:true}]}]}]}]
+      reader.detail=d;reader.tabId="changes";wait(20)
+      keyClick(Qt.Key_Down);verify(named("Comment on line…").activeFocus)
+      keyClick(Qt.Key_Right);wait(20);verify(reader.actionOpen)
+      keyClick(Qt.Key_Return);wait(20);verify(reader.actionOpen)
+      keyClick(Qt.Key_Escape);keyClick(Qt.Key_Escape);wait(20)
+      verify(!reader.actionOpen);verify(!reader.busy);compare(reader.tabId,"changes")
+    }
     function test_tabs_and_keyboard_button_activation() {
       reader.tabId="conversation"
       keyClick(Qt.Key_BracketRight)

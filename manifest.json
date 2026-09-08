@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "tcballard.github",
   "name": "GitHub",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "tcballard",
   "license": "MIT",
   "description": "A native maintainer desk for GitHub notifications, issues, pull requests, discussions, and CI.",

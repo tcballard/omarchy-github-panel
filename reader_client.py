@@ -8,6 +8,7 @@ import sys
 from urllib.parse import urlparse
 from github_client import GhError
 import lifecycle
+import review_threads
 
 LIMIT = 4 * 1024 * 1024
 REPO = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
@@ -215,7 +216,12 @@ class Client:
         if len(reviews) == 100 or len(inline) == 100:
             result['warnings'].append('Reviews are limited to the first 100 reviews and 100 inline comments.')
         files = self.api(f'{base}/pulls/{n}/files?per_page=100')
-        result['tabs'].append(tab('changes', 'Changes', file_blocks(files)))
+        result['tabs'].append(tab('changes', 'Changes', review_threads.file_blocks(files, pr)))
+        def threads():
+            thread_tab, warnings = review_threads.load_threads(self, result['target']['repo'], n, pr)
+            result['tabs'].append(thread_tab)
+            result['warnings'].extend(warnings)
+        self.optional(result, threads)
         if pr.get('changed_files',0) > len(files):
             result['warnings'].append(f"Showing {len(files)} of {pr['changed_files']} changed files.")
         self.checks(base, pr['head']['sha'], result)
@@ -288,6 +294,8 @@ class Client:
         # Building these controls does not perform any mutation; only an explicit UI submit calls here.
         action = request.get('action')
         item = request.get('item') or {}
+        if action in review_threads.ACTIONS:
+            return review_threads.perform(self, request)
         if action in lifecycle.ACTIONS:
             return lifecycle.perform(self, request)
         if action in ('approve', 'request-changes', 'merge'):

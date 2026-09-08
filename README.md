@@ -73,3 +73,11 @@ Backend tests use mocked transports for every write path, and Qt tests exercise 
 Search covers issues and pull requests visible to your GitHub account, beyond the dashboard’s attention signals. Filter by repository, issue/PR type, and open/closed/merged state. Queries accept GitHub qualifiers, for example `label:bug`, `author:alice`, `review-requested:@me`, or `repo:owner/name`. Account qualifiers using `@me` resolve through the current login. Filters combine with the entire query, including OR expressions.
 
 Results are sorted by latest update, loaded 50 at a time, and capped at GitHub’s 1,000-result search limit. Use Load more or P to fetch another page. Incomplete results, rate limits and permission errors appear in the search view. Submitting a newer query discards older in-flight responses. Search runs only when submitted, and its results are not written to disk.
+
+## Inline code review
+
+In a PR’s Changes tab, Up/Down selects changed files. Enter/Right opens Comment on line; choose a numbered New (right) or Old (left) diff line, write the comment, then review and confirm. Comments are submitted immediately as individual inline review comments, rather than collected into a pending batch review. Binary or unavailable patches cannot receive a line comment. Displayed lines include L/R numbers matching the selector.
+
+The Threads tab groups inline conversations and marks them resolved, unresolved and/or outdated. Select a thread with Up/Down, then Enter/Right to resolve or reopen it. The confirmation checks current GitHub permissions, the PR head/base, thread membership and whether the loaded comments or resolution changed. Each read shows up to 100 threads and 100 comments per thread; oversized threads cannot be resolved from a partial conversation. GitHub does not offer an atomic comment-version precondition for thread resolution, so another reply in the final request window remains possible.
+
+Inline comments bind the confirmed commit and a line from a freshly fetched patch. These controls reuse the explicit confirmation and duplicate-submit protection used by other actions. Tests use mocked write responses; live verification only reads GitHub data.

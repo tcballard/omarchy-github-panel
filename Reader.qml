@@ -197,7 +197,7 @@ Rectangle {
     var result = []
     if (!activeTab) return result
     for (var i = 0; i < activeTab.blocks.length; i++)
-      if (activeTab.blocks[i].action) result.push(i)
+      if (activeTab.blocks[i].action || (activeTab.blocks[i].operations || []).length) result.push(i)
     return result
   }
 
@@ -216,6 +216,13 @@ Rectangle {
     return true
   }
 
+  function openBlock(index) {
+    if (busy || actionOpen || !activeTab) return
+    var block = activeTab.blocks[index]
+    if (block.operations && block.operations.length) actions.prepare(detail, block.operations)
+    else if (block.action) showItem(block.action, true)
+  }
+
   function enterDetail() {
     var controls = []
     keyboardControls(root, controls)
@@ -229,7 +236,7 @@ Rectangle {
     var items = drillItems()
     if (items.length) {
       var index = selectedBlock < 0 ? items[0] : selectedBlock
-      showItem(activeTab.blocks[index].action, true)
+      openBlock(index)
     } else focusReader()
   }
 
@@ -590,10 +597,10 @@ Rectangle {
             DeskButton {
               id: drillAction
               drillControl: true
-              visible: modelData.action !== null
-              text: modelData.action && modelData.action.kind === "job" ? "Read job logs" : "Inspect run"
+              visible: !!modelData.action || (modelData.operations || []).length > 0
+              text: modelData.operationLabel || (modelData.action && modelData.action.kind === "job" ? "Read job logs" : "Inspect run")
               enabled: !root.posting
-              onClicked: root.showItem(modelData.action, true)
+              onClicked: root.openBlock(index)
             }
           }
         }
