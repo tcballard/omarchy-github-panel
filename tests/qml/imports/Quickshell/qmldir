@@ -1,0 +1,3 @@
+module Quickshell
+Dummy 1.0 Dummy.qml
+FloatingWindow 1.0 FloatingWindow.qml

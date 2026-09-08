@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+TEST_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_CONTROLS_STYLE=Basic \
+  /usr/lib/qt6/bin/qmltestrunner -import "$TEST_DIR/qml/imports" -input "$TEST_DIR/qml"

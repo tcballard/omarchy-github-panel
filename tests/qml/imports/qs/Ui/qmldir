@@ -1,0 +1,3 @@
+module qs.Ui
+PanelActionButton 1.0 PanelActionButton.qml
+PanelSeparator 1.0 PanelSeparator.qml

@@ -1,0 +1,13 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test GitHub operations with mocked transport
+        run: python3 -B -m unittest discover -s tests -v
+      - name: Build plugin archive
+        run: python3 -B scripts/package.py
