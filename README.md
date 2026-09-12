@@ -13,7 +13,17 @@ omarchy plugin add https://github.com/tcballard/omarchy-github-panel.git --enabl
 omarchy-shell shell summon tcballard.github
 ```
 
-The repository is private, so cloning requires your GitHub account’s access. For a git-managed installation, update with `omarchy plugin update tcballard.github`. Installation does not create or replace keyboard shortcuts; this machine’s existing Super+Alt+I binding is retained.
+The repository is public. For a git-managed installation, update with `omarchy plugin update tcballard.github`. Installation does not create or replace keyboard shortcuts; this machine’s existing Super+Alt+I binding is retained.
+
+Remove the plugin with:
+
+```bash
+omarchy plugin remove tcballard.github
+```
+
+Remove any shortcut you added separately. Removal leaves your GitHub CLI login and the dashboard cache at `$XDG_STATE_HOME/omarchy/github/dashboard.json` (normally `~/.local/state/omarchy/github/dashboard.json`) intact. Delete that cache separately if you no longer want its stored repository and notification metadata.
+
+The panel launches bundled Python helpers, which invoke `gh` to access GitHub's API using your existing authentication. Dashboard refreshes run periodically while loaded; reader requests, searches, and confirmed management actions run on demand. The dashboard cache is written locally; reply drafts stay in memory until the shell restarts. Installation does not replace user configuration or create keyboard bindings. GitHub changes use your account permissions and require explicit UI actions and the documented confirmations.
 
 The manifest keeps the original `tcballard.github` ID so existing configurations continue to work. Derived from the GitHub panel in [tcballard/omarchy PR #2](https://github.com/tcballard/omarchy/pull/2); the original Omarchy MIT license is included.
 
@@ -49,6 +59,8 @@ In a reply:
 - Posting requires explicitly activating Post reply. Drafts are retained per item while this plugin instance remains loaded; they do not survive a shell restart.
 
 ## Verification
+
+Run `tests/run` for the portable backend checks and archive build. Run `tests/keyboard` separately on a machine with Qt Quick Test installed for the keyboard and confirmation tests.
 
 `tests/keyboard` runs real Qt key/focus tests against Reader.qml. It substitutes only the Quickshell process wrapper and theme singletons because those plugins are linked into the Quickshell executable. All controls and event handling are real Qt Quick; no subprocesses or GitHub actions run.
 
