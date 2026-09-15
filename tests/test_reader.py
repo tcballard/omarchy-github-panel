@@ -106,7 +106,7 @@ class ReaderTests(unittest.TestCase):
 
     def test_transport_passes_json_via_stdin(self):
         from types import SimpleNamespace
-        with patch('reader_client.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout=b'{}',stderr=b'')) as run:
+        with patch('reader_client.run_bounded',return_value=SimpleNamespace(returncode=0,stdout=b'{}',stderr=b'')) as run:
             transport(['api','graphql','--input','-'],{'body':'\n@hi `x`'})
         self.assertEqual(json.loads(run.call_args.kwargs['input']),{'body':'\n@hi `x`'})
         self.assertNotIn('shell',run.call_args.kwargs)

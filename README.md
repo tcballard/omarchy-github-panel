@@ -93,3 +93,10 @@ In a PR’s Changes tab, Up/Down selects changed files. Enter/Right opens Commen
 The Threads tab groups inline conversations and marks them resolved, unresolved and/or outdated. Select a thread with Up/Down, then Enter/Right to resolve or reopen it. The confirmation checks current GitHub permissions, the PR head/base, thread membership and whether the loaded comments or resolution changed. Each read shows up to 100 threads and 100 comments per thread; oversized threads cannot be resolved from a partial conversation. GitHub does not offer an atomic comment-version precondition for thread resolution, so another reply in the final request window remains possible.
 
 Inline comments bind the confirmed commit and a line from a freshly fetched patch. These controls reuse the explicit confirmation and duplicate-submit protection used by other actions. Tests use mocked write responses; live verification only reads GitHub data.
+
+
+### 0.3.1 — bounded GitHub CLI output
+
+Both dashboard and reader requests stream stdout and stderr with hard byte ceilings (4 MiB and 8 KiB respectively). Overflow produces a response-limit error; timeouts remain 25 seconds for dashboard requests and 40 seconds for reader requests. The helper kills the isolated request process group and reaps the direct child on overflow or deadline. Request input is written concurrently so large payloads cannot block output collection. No failed write is automatically retried.
+
+The portable suite includes real local child-process regressions for these limits and cleanup, without contacting GitHub. See [validation notes](VALIDATION.md).

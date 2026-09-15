@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+from bounded_process import run_bounded, OutputLimitExceeded
 import sys
 from urllib.parse import urlparse
 from github_client import GhError
@@ -17,16 +18,16 @@ REPO = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 def transport(args, payload=None):
     command = ['gh', *args]
     try:
-        result = subprocess.run(command, input=json.dumps(payload).encode() if payload is not None else None,
-                                capture_output=True, timeout=40)
+        result = run_bounded(command, input=json.dumps(payload).encode() if payload is not None else None,
+                                stdout_limit=LIMIT, timeout=40)
     except subprocess.TimeoutExpired as exc:
         raise GhError('GitHub timed out. Refresh to try again.', 'timeout') from exc
     except FileNotFoundError as exc:
         raise GhError('GitHub CLI is not installed.', 'missing-gh') from exc
+    except OutputLimitExceeded as exc:
+        raise GhError('This response is too large to load safely. Try a smaller thread or job.', 'response-limit') from exc
     if result.returncode:
         raise GhError(result.stderr.decode('utf-8', 'replace')[:600].strip() or 'GitHub request failed.')
-    if len(result.stdout) > LIMIT:
-        raise GhError('This response is too large to load safely. Try a smaller thread or job.', 'response-limit')
     return result.stdout.decode('utf-8', 'replace')
 
 

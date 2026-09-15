@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+from bounded_process import run_bounded, OutputLimitExceeded
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -122,11 +123,9 @@ def state_path() -> Path:
 
 def run_command(command: list[str]) -> str:
     try:
-        result = subprocess.run(
+        result = run_bounded(
             command,
-            check=False,
-            capture_output=True,
-            text=False,
+            stdout_limit=MAX_OUTPUT_BYTES,
             timeout=COMMAND_TIMEOUT_SECONDS,
             env={**os.environ, "GH_PROMPT_DISABLED": "1", "NO_COLOR": "1"},
         )
@@ -134,11 +133,11 @@ def run_command(command: list[str]) -> str:
         raise GhError("Install GitHub CLI to use this panel", "missing-gh") from error
     except subprocess.TimeoutExpired as error:
         raise GhError("GitHub took too long to respond", "timeout") from error
+    except OutputLimitExceeded as error:
+        raise GhError("GitHub returned more data than this panel can safely display", "response-limit") from error
 
-    stdout = result.stdout[: MAX_OUTPUT_BYTES + 1]
-    stderr = result.stderr[:8192]
-    if len(stdout) > MAX_OUTPUT_BYTES:
-        raise GhError("GitHub returned more data than this panel can safely display", "response-limit")
+    stdout = result.stdout
+    stderr = result.stderr
     if result.returncode != 0:
         message = stderr.decode("utf-8", "replace").strip()
         lowered = message.lower()
