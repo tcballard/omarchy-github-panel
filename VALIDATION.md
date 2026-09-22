@@ -23,3 +23,16 @@ Scope: marketplace issue omacom/omarchy-plugin-marketplace#6584, based on
 No live Omarchy desktop or authenticated GitHub write was used. Native host
 validation and marketplace review of the corrected commit remain outstanding.
 QML is unchanged; the keyboard suite was not rerun for this transport repair.
+
+
+# Workspace on-device verification — 22 September 2026
+
+Tom updated his XPS to main at `8793d4b` (the 0.4.0 workspace and conflict
+resolution changes), confirmed the plugin opens and repository browsing works,
+and subsequently confirmed all remaining local testing passed.
+
+The screenshot at `docs/images/github-xps-familiar.png` was supplied by Tom
+and is reproduced unchanged. It shows the plugin floating on the Familiar
+theme with the repository browser open. This records owner-reported testing;
+it does not turn the earlier mocked tests into live GitHub mutation evidence
+or claim a new marketplace review. See WORKSPACE.md for the completed checklist.
