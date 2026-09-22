@@ -8,7 +8,7 @@ from pathlib import Path
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-FILES = ['manifest.json', 'LICENSE', 'README.md', 'Panel.qml', 'Reader.qml',
+FILES = ['manifest.json', 'LICENSE', 'README.md', 'GUIDE.md', 'Panel.qml', 'Reader.qml',
          'Service.qml', 'ActionsDialog.qml', 'PRActionDialog.qml', 'SearchBar.qml',
          'bounded_process.py', 'github_client.py', 'reader_client.py', 'lifecycle.py', 'search_client.py', 'review_threads.py']
 
