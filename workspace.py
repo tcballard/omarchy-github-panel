@@ -10,7 +10,7 @@ from navigation import repository, segment, path, resolve
 import local_state
 
 PAGE = 30
-KINDS = {'collection','repository','code','code-url','release-tag','review-page','thread-page','thread','templates','template','workflow','discussion-replies','people'}
+KINDS = {'conflicts','conflict-file','collection','repository','code','code-url','release-tag','review-page','thread-page','thread','templates','template','workflow','discussion-replies','people'}
 
 
 def target(kind, repo='', **values):
@@ -292,6 +292,9 @@ def code_detail(client,item):
 
 def detail(client,item):
     kind=item.get('kind')
+    if kind in ('conflicts','conflict-file'):
+        import conflict_workspace
+        return conflict_workspace.detail(client,item)
     if kind=='collection': return collection(client,item)
     if kind=='repository': return repository_detail(client,item)
     if kind=='code': return code_detail(client,item)

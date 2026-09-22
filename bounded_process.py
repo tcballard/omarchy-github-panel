@@ -11,7 +11,7 @@ class OutputLimitExceeded(RuntimeError):
 
 
 def run_bounded(command, *, timeout, stdout_limit, stderr_limit=8192,
-                input=None, env=None):
+                input=None, env=None, guard=None):
     """Drain both pipes fairly; never retain output beyond either byte ceiling.
 
     Stdin participates in the same nonblocking loop so a child producing output
@@ -37,10 +37,12 @@ def run_bounded(command, *, timeout, stdout_limit, stderr_limit=8192,
                 os.set_blocking(process.stdin.fileno(), False)
                 selector.register(process.stdin, selectors.EVENT_WRITE, 'stdin')
             while selector.get_map():
+                if guard is not None:
+                    guard()
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise subprocess.TimeoutExpired(command, timeout)
-                for key, _ in selector.select(remaining):
+                for key, _ in selector.select(min(remaining, 0.25) if guard else remaining):
                     if time.monotonic() >= deadline:
                         raise subprocess.TimeoutExpired(command, timeout)
                     pipe, name = key.fileobj, key.data
@@ -72,7 +74,18 @@ def run_bounded(command, *, timeout, stdout_limit, stderr_limit=8192,
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise subprocess.TimeoutExpired(command, timeout)
-            process.wait(timeout=remaining)
+            if guard is None:
+                process.wait(timeout=remaining)
+            else:
+                while process.poll() is None:
+                    guard()
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise subprocess.TimeoutExpired(command, timeout)
+                    try:
+                        process.wait(timeout=min(remaining, 0.25))
+                    except subprocess.TimeoutExpired:
+                        pass
         return subprocess.CompletedProcess(command, process.returncode,
                                            bytes(result['stdout']), bytes(result['stderr']))
     finally:

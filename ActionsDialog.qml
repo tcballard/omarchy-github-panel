@@ -16,7 +16,8 @@ Popup {
   property var candidates: ({})
   property int pickGeneration: 0
   property string pickerError: ""
-  readonly property bool localAction: selected && ["browse-filter","save-view","delete-view","pin","unpin","stage-comment","discard-review","download-asset","download-artifact"].indexOf(selected.id) >= 0
+  readonly property bool codeAction: selected && selected.id === "conflicts-save"
+  readonly property bool localAction: selected && ["conflicts-prepare","conflicts-save","conflicts-discard","browse-filter","save-view","delete-view","pin","unpin","stage-comment","discard-review","download-asset","download-artifact"].indexOf(selected.id) >= 0
   readonly property bool valid: {
     if (!selected || selected.reason || sending || error) return false
     var fields = selected.fields || []
@@ -32,8 +33,8 @@ Popup {
   modal: true
   focus: true
   padding: Style.space(12)
-  width: Math.min(parent.width - 16, Style.space(570))
-  height: Math.min(parent.height - 16, Style.space(580))
+  width: Math.min(parent.width - 16, Style.space(codeAction ? 900 : 570))
+  height: Math.min(parent.height - 16, Style.space(codeAction ? 740 : 580))
   x: (parent.width - width) / 2
   y: (parent.height - height) / 2
   closePolicy: sending ? Popup.NoAutoClose : Popup.CloseOnEscape
@@ -119,7 +120,10 @@ Popup {
     if (!selected) return ""
     var lines = []
     var expected = selected.expected || {}
-    if (expected.headSha) lines.push("Commit " + expected.headSha.substring(0,12) + " → " + expected.baseRef)
+    if (selected.id.indexOf("conflicts-") === 0 && expected.baseSha) {
+      lines.push("PR source: " + expected.headRepo + ":" + expected.headRef + " @ " + expected.headSha.substring(0,12))
+      lines.push("Merge target: " + expected.baseRepo + ":" + expected.baseRef + " @ " + expected.baseSha.substring(0,12))
+    } else if (expected.headSha) lines.push("Commit " + expected.headSha.substring(0,12) + " → " + expected.baseRef)
     if (expected.head_sha) lines.push("Commit " + expected.head_sha.substring(0,12) + " · attempt " + expected.run_attempt)
     for (var i = 0; i < selected.fields.length; i++) {
       var f = selected.fields[i]
@@ -254,7 +258,7 @@ Popup {
             }
             ScrollView {
               Layout.fillWidth: true
-              Layout.preferredHeight: Style.space(modelData.multiline ? 110 : 42)
+              Layout.preferredHeight: Style.space(modelData.code ? 260 : (modelData.multiline ? 110 : 42))
               visible: !modelData.options
               TextArea {
                 id: editor
@@ -262,7 +266,7 @@ Popup {
                 text: root.values[modelData.key] || ""
                 onTextChanged: if (activeFocus) root.setValue(modelData.key, text)
                 textFormat: TextEdit.PlainText
-                wrapMode: TextEdit.Wrap
+                wrapMode: modelData.code ? TextEdit.NoWrap : TextEdit.Wrap
                 selectByMouse: true
                 color: Color.foreground
                 font.family: Style.font.family

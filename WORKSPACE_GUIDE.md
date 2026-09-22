@@ -72,6 +72,59 @@ the confirmed head as its parent, preserves executable mode, and advances the
 branch without force. Concurrent branch advances reject the update. Outdated,
 left-side, binary and offset-range suggestion formats are not applied.
 
+## Resolve PR merge conflicts
+
+Open a PR → Related → Resolve merge conflicts → Actions → Prepare conflict
+workspace. Git downloads the objects into a private workspace and calculates
+what merging the target branch into the PR source branch would do. Your own
+checkout is never opened or changed. Requires Git 2.38+ and your existing
+GitHub CLI login; there is no separate credential setup.
+
+Open each conflicted file to compare the ancestor, PR source, target and merged
+result. **Save resolution** offers these choices:
+
+- **edit**: edit the proposed merged text, remove conflict markers and select
+  regular or executable file permissions. This is the default for text files.
+- **source**: keep the entire PR-source version of the file.
+- **target**: keep the entire target-branch version of the file.
+
+Whole-file choices replace the file, including any nonconflicting changes in
+that same file. An absent side means delete the file. Binary files support
+whole-file choices; the text editor supports UTF-8 files up to 60,000 characters.
+Empty edited files are valid. Save each resolution explicitly; closing an unsaved
+form discards its edits. Saved resolutions survive restarting the panel.
+
+Once every file is resolved, inspect **Merge preview**, including changes Git
+merged automatically, and choose **Commit resolved merge**. The separate
+confirmation identifies both repositories, branches and commits. Publication
+adds a merge commit to the PR source branch, preserving both parents; it leaves
+the PR open and can start CI. It supports source branches in forks when your
+GitHub account has permission to push. Branch rules, including signed-commit or
+linear-history requirements, can reject this merge commit.
+
+Both branches are checked again before publication. A changed branch requires
+**Start again**, which discards saved resolutions. The source update also uses
+an exact Git ref lease, so a concurrent source push is rejected without rewriting
+history. A target branch can still advance after the final check; refresh the
+PR and resolve any newly introduced conflicts. Failed or uncertain publication
+is never retried automatically: refresh the PR first.
+
+Text/content, add/add, modify/delete, binary and regular-file mode conflicts are
+supported. Structural rename conflicts, directory/file conflicts, symlink and
+submodule conflicts require a local Git checkout; the plugin blocks publication
+of those sessions. Git still performs ordinary rename detection for cleanly
+mergeable changes. It computes merge bases from full ancestry rather than
+assuming a single ancestor.
+
+Each workspace has a monitored 256 MiB budget and each Git operation sequence a
+three-minute deadline. The budget is sampled while commands run, so a transfer
+may briefly exceed it before being stopped. More than 100 conflicted files are
+not handled in-panel. Full merge diffs above 1 MiB show the change summary with
+an explicit preview warning. Use **Discard workspace** to delete local Git
+objects and resolutions; successful publication also cleans them up. No files
+are checked out, hooks run or submodules initialized. Your GitHub noreply address
+is used for the merge commit, which is not signed.
+
 ## Actions and releases
 
 A PR's Checks and Related tabs link to Actions runs for that exact commit.
@@ -97,7 +150,7 @@ reports how many notifications were updated; it is never automatically retried.
 Private state is stored under `$XDG_STATE_HOME/omarchy/github/accounts/` in
 account-specific directories (normally `~/.local/state/omarchy/github/accounts/`).
 It contains drafts, review drafts, saved views, pins, recents, reading positions,
-viewed markers, resumable star searches and the last 25 detail views within an
+viewed markers, resumable star searches, explicit conflict workspaces and the last 25 detail views within an
 8 MiB cache budget. Credentials stay with `gh`. Removing the plugin leaves this
 state and downloaded assets intact; delete the account-state directory yourself
 if you want to remove saved private content.
@@ -121,6 +174,6 @@ dependency. These tests fake the GitHub transport and shell wrappers; they do
 not exercise live account writes or establish on-device Omarchy compatibility.
 
 Repository/organisation settings, billing, Projects, security administration,
-a general local Git editor and conflict resolution are outside this workspace
+a general local Git editor are outside this workspace
 expansion. Large binary/code files and unavailable patches retain explicit
 preview limits. The target desktop smoke checklist is in `WORKSPACE.md`.

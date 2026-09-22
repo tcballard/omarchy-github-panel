@@ -1,7 +1,7 @@
 # Native GitHub workspace
 
 Accepted scope (22 September 2026): make routine repository, star, issue, PR,
-review, notification, CI and release work possible inside the existing plugin.
+review, conflict resolution, notification, CI and release work possible inside the existing plugin.
 Repository administration, billing, Projects and security administration are
 outside this change. Keep plugin ID `tcballard.github`, panel/service kinds,
 Python 3 and the user's GitHub CLI authentication. No browser embedding or
@@ -35,6 +35,7 @@ credential copying.
 - [x] PR creation/editing, draft conversion, reviewer removal, branch cleanup
 - [x] Thread replies, pending batch reviews, multiline comments, viewed files
 - [x] Complete diff/review/thread pages and suggested-change handling
+- [x] Isolated PR conflict workspace, saved file resolutions and guarded merge publication
 - [x] Check-to-log links, workflow history/dispatch, artifacts and log search
 - [x] Release drafts/editing/publication and asset download/upload
 - [x] Notification filtering, bulk page actions, done/unsubscribe
@@ -44,13 +45,18 @@ credential copying.
 
 Portable verification on 22 September 2026:
 
-- 97 Python tests passed, including mutation preflights, account isolation,
+- 111 Python tests passed, including mutation preflights, account isolation,
   pagination, templates, review submission and GraphQL syntax regression checks.
-- 39 Qt Quick checks passed with PySide6 6.11.2 using real controls and stubbed
+- 41 Qt Quick checks passed with PySide6 6.11.2 using real controls and stubbed
   Quickshell process/theme wrappers; no remote operations are executed.
 - 15 static GraphQL operations validated against the official Octokit GitHub
   introspection schema. Runtime-selected mutations were checked against the
   GitHub reference documentation.
+- Real Git fixtures cover content, add/add, modify/delete, binary and executable
+  files, structural conflict rejection, marker validation, local revisions,
+  two-parent commits, and actual push lease rejection against a local bare remote.
+- A read-only public GitHub fetch and merge-tree smoke passed against this PR
+  at b1d1cb9 and main at 6d84d58. No GitHub branch was changed by that check.
 - Plugin archive builds, git whitespace checks pass, and the Omarchy plugin
   validator reports no errors, warnings or security findings.
 
@@ -67,6 +73,10 @@ Before release, test on an actual Omarchy desktop with the existing gh login:
 - In a disposable repository, create an issue from a form and a PR, post a
   comment/reaction, stage and submit a multiline review, reply to a thread,
   mark a file viewed and apply a current suggestion.
+- In a disposable conflicting PR, prepare the workspace, combine a text file,
+  save a whole-file/deletion choice, inspect the merge preview and publish.
+  Verify the source commit has both parents and the PR remains open. Test a fork
+  with permission to push and a protected branch that rejects publication.
 - Dispatch a test workflow, follow a check to its job/log, find a log term and
   download a small artifact. Create/edit a draft release, upload/download an
   asset, then publish only when deliberately ready.

@@ -6,11 +6,11 @@ Local user-plugin version of tcballard/omarchy PR #2, with an internal thread re
 
 The 0.4.0 workspace adds repository and star browsing, saved views, paginated
 lists, native code/README navigation, durable drafts, batch reviews, issue and
-workflow forms, and release/asset management. Start with **Repositories** or
+workflow forms, native PR conflict resolution, and release/asset management. Start with **Repositories** or
 **Stars**, or use **Browse all / filter** from an attention section. See the
 [workspace guide](WORKSPACE_GUIDE.md) for the new workflows and their limits.
 
-Requires Omarchy with the Quickshell plugin API, Python 3, and GitHub CLI authenticated with `gh auth login --hostname github.com`. Your token must have access to the repositories and actions you use; inbox notifications additionally need notification access.
+Requires Omarchy with the Quickshell plugin API, Python 3, Git 2.38+ for conflict resolution, and GitHub CLI authenticated with `gh auth login --hostname github.com`. Your token must have access to the repositories and actions you use; inbox notifications additionally need notification access.
 
 Install from this repository on a new machine:
 

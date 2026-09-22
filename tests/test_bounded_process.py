@@ -58,6 +58,16 @@ class BoundedProcessTests(unittest.TestCase):
     def test_silent_timeout(self):
         self.assert_stopped('import time; time.sleep(30)', subprocess.TimeoutExpired, timeout=.15)
 
+    def test_guard_failure_kills_silent_and_closed_pipe_children(self):
+        for close in ('', 'os.close(1); os.close(2);'):
+            calls = []
+            def guard():
+                calls.append(1)
+                if len(calls) > 1:
+                    raise RuntimeError('workspace budget exceeded')
+            with self.subTest(close=close):
+                self.assert_stopped('import os,time; ' + close + ' time.sleep(30)', RuntimeError, guard=guard)
+
     def test_continuous_output_still_obeys_deadline(self):
         self.assert_stopped("import os,time\nwhile True:\n os.write(1,b'x'); time.sleep(.005)", subprocess.TimeoutExpired, timeout=.15)
 

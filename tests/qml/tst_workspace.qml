@@ -77,5 +77,32 @@ Item {
       compare(submissions.count,0)
       keyClick(Qt.Key_Return);compare(submissions.count,0)
     }
+    function test_conflict_resolution_is_local_and_preserves_code_input() {
+      dialog.prepare({target:{kind:"conflict-file",repo:"a/b",number:7,path:"test.py"}},[
+        {id:"conflicts-save",label:"Save resolution",description:"Save locally",expected:{session:"one",revision:2},fields:[
+          {key:"body",label:"Resolved contents",value:"",multiline:true,code:true}]}])
+      dialog.choose(0);wait(20)
+      verify(dialog.localAction);verify(dialog.codeAction)
+      var editor=findChild(dialog.contentItem,"field_body")
+      verify(editor);editor.forceActiveFocus()
+      keyClick(Qt.Key_A);keyClick(Qt.Key_Return);keyClick(Qt.Key_B)
+      compare(dialog.values.body,"a\nb");compare(submissions.count,0)
+      dialog.review();compare(submissions.count,0)
+      dialog.confirm();compare(submissions.count,1)
+      compare(submissions.signalArguments[0][0].expected.revision,2)
+      compare(submissions.signalArguments[0][0].values.body,"a\nb")
+    }
+    function test_conflict_publication_has_separate_confirmation_and_branch_identity() {
+      dialog.prepare({target:{kind:"conflicts",repo:"a/b",number:7}},[
+        {id:"conflicts-publish",label:"Commit resolved merge",description:"Update source",fields:[{key:"message",label:"Message",value:"Resolve",required:true}],
+          expected:{headSha:"aaaaaaaaaaaa",baseSha:"bbbbbbbbbbbb",headRepo:"fork/b",baseRepo:"a/b",headRef:"topic",baseRef:"main",session:"one",revision:3}}])
+      dialog.choose(0);wait(20);verify(!dialog.localAction)
+      dialog.review();wait(20);compare(submissions.count,0)
+      verify(dialog.confirmationText().indexOf("fork/b:topic")>=0)
+      verify(dialog.confirmationText().indexOf("a/b:main")>=0)
+      keyClick(Qt.Key_Return);compare(submissions.count,0)
+      dialog.review();dialog.confirm();compare(submissions.count,1)
+      dialog.confirm();compare(submissions.count,1)
+    }
   }
 }

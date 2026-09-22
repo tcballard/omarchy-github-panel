@@ -8,8 +8,9 @@ from navigation import repository, segment, path
 from workspace import block, target, selector, release_create
 import local_state
 import review_workspace
+import conflict_workspace
 
-ACTIONS=review_workspace.ACTIONS | {'browse-filter','save-view','delete-view','pin','unpin','star','unstar','create-pr','edit-pr','draft-pr','remove-reviewers','delete-branch','comment-edit','comment-delete','reaction','milestone','close-not-planned','notifications-read','notification-done','notification-unsubscribe','create-release','edit-release','publish-release','download-asset','download-artifact','upload-asset','dispatch-workflow','create-template-issue','create-discussion','discussion-reply','discussion-answer','discussion-close'}
+ACTIONS=conflict_workspace.ACTIONS | review_workspace.ACTIONS | {'browse-filter','save-view','delete-view','pin','unpin','star','unstar','create-pr','edit-pr','draft-pr','remove-reviewers','delete-branch','comment-edit','comment-delete','reaction','milestone','close-not-planned','notifications-read','notification-done','notification-unsubscribe','create-release','edit-release','publish-release','download-asset','download-artifact','upload-asset','dispatch-workflow','create-template-issue','create-discussion','discussion-reply','discussion-answer','discussion-close'}
 
 
 def release_snapshot(node):
@@ -43,6 +44,7 @@ def enrich(client,result):
                     b['operationLabel']='Comment actions'
         result['links'].append(block('Timeline','',target('collection',repo,collection='timeline',number=item['number'])))
         if kind=='pull-request':
+            result['links'].append(block('Resolve merge conflicts','Prepare, resolve and commit a merge into this PR branch.',target('conflicts',repo,number=item['number'])))
             pr=client.api(base+'/pulls/'+str(item['number'])); exp={**review_workspace.snapshot(pr),'updated':pr['updated_at']}
             result['actions'] += [choice('edit-pr','Edit title, description and target','Update this PR. Changing its target branch changes the diff.',exp,[field('title','Title',pr['title'],True),field('body','Description',pr.get('body') or '',multiline=True),field('base','Target branch',pr['base']['ref'],True)])]
             if not pr.get('draft') and pr['state']=='open': result['actions'].append(choice('draft-pr','Convert to draft','Return this PR to draft status.',exp))
@@ -73,6 +75,7 @@ def enrich(client,result):
 def perform(client,req):
     if req.get('confirmed') is not True: raise GhError('Confirm this action first.', 'input')
     action=req['action']; item=req.get('item') or {}; values=req.get('values') or {}; exp=req.get('expected') or {}
+    if action in conflict_workspace.ACTIONS: return conflict_workspace.perform(client,req)
     if action in review_workspace.ACTIONS: return review_workspace.perform(client,req)
     if not isinstance(values,dict) or not isinstance(exp,dict): raise GhError('Invalid action.', 'input')
     if action=='browse-filter':
