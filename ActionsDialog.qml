@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell.Io
 import qs.Commons
 
 Popup {
@@ -12,6 +13,11 @@ Popup {
   property int stage: 0
   property bool sending: false
   property string error: ""
+  property var candidates: ({})
+  property int pickGeneration: 0
+  property string pickerError: ""
+  readonly property bool codeAction: selected && selected.id === "conflicts-save"
+  readonly property bool localAction: selected && ["conflicts-prepare","conflicts-save","conflicts-discard","browse-filter","save-view","delete-view","pin","unpin","stage-comment","discard-review","download-asset","download-artifact"].indexOf(selected.id) >= 0
   readonly property bool valid: {
     if (!selected || selected.reason || sending || error) return false
     var fields = selected.fields || []
@@ -27,8 +33,8 @@ Popup {
   modal: true
   focus: true
   padding: Style.space(12)
-  width: Math.min(parent.width - 16, Style.space(570))
-  height: Math.min(parent.height - 16, Style.space(580))
+  width: Math.min(parent.width - 16, Style.space(codeAction ? 900 : 570))
+  height: Math.min(parent.height - 16, Style.space(codeAction ? 740 : 580))
   x: (parent.width - width) / 2
   y: (parent.height - height) / 2
   closePolicy: sending ? Popup.NoAutoClose : Popup.CloseOnEscape
@@ -39,6 +45,7 @@ Popup {
     snapshot = JSON.parse(JSON.stringify(detail || {}))
     entries = JSON.parse(JSON.stringify(choices || []))
     selected = null; values = ({}); stage = 0; error = ""
+    candidates = ({}); pickerError = ""; pickGeneration++
     menu.currentIndex = 0
     open()
     Qt.callLater(function() { menu.forceActiveFocus() })
@@ -48,7 +55,8 @@ Popup {
     selected = entries[index]
     if (selected.legacy) { var kind = selected.id; close(); legacyAction(kind); return }
     var initial = {}
-    for (var i = 0; i < selected.fields.length; i++) initial[selected.fields[i].key] = selected.fields[i].value || ""
+    var selectedFields = selected.fields || []
+    for (var i = 0; i < selectedFields.length; i++) initial[selectedFields[i].key] = selectedFields[i].value || ""
     values = initial; error = ""
     stage = selected.fields.length ? 1 : 2
     Qt.callLater(function() {
@@ -57,6 +65,15 @@ Popup {
     })
   }
   function setValue(key, value) { var copy = Object.assign({}, values); copy[key] = value; values = copy }
+  function canPick(key) { return ["repo","labels","assignees","reviewers","milestone","head","base","ref","branch","target"].indexOf(key) >= 0 }
+  function pick(key, next) {
+    if (picker.running) return
+    var current = candidates[key]
+    picker.request = {op:"pick",field:key,repo:values.repo || (snapshot.target ? snapshot.target.repo : ""),page:next && current ? current.page + 1 : 1}
+    picker.requestGeneration = pickGeneration
+    pickerError = ""
+    picker.running = true
+  }
   function goBack() {
     if (sending) return
     if (stage === 0 || error) { close(); return }
@@ -66,8 +83,28 @@ Popup {
   }
   function review() {
     if (!valid) return
+    if (selected.id === "browse-filter") { stage = 2; confirm(); return }
     stage = 2
     Qt.callLater(function() { backButton.forceActiveFocus() })
+  }
+  Process {
+    id: picker
+    property var request: ({})
+    property int requestGeneration: 0
+    command: ["python3","-B",Qt.resolvedUrl("reader_client.py").toString().replace(/^file:\/\//, "")]
+    stdinEnabled: true
+    onStarted: write(JSON.stringify(request)+"\n")
+    stdout: StdioCollector { id: pickOutput; waitForEnd: true }
+    onExited: function(code) {
+      if (requestGeneration !== root.pickGeneration || !root.visible) return
+      try {
+        var result = JSON.parse(pickOutput.text || "{}")
+        if (!result.ok) { root.pickerError = result.error || "Could not load choices."; return }
+        var data = Object.assign({},root.candidates)
+        data[request.field] = result
+        root.candidates = data
+      } catch (e) { root.pickerError = "Could not read choices." }
+    }
   }
   function confirm() {
     if (!valid || stage !== 2) return
@@ -83,7 +120,10 @@ Popup {
     if (!selected) return ""
     var lines = []
     var expected = selected.expected || {}
-    if (expected.headSha) lines.push("Commit " + expected.headSha.substring(0,12) + " → " + expected.baseRef)
+    if (selected.id.indexOf("conflicts-") === 0 && expected.baseSha) {
+      lines.push("PR source: " + expected.headRepo + ":" + expected.headRef + " @ " + expected.headSha.substring(0,12))
+      lines.push("Merge target: " + expected.baseRepo + ":" + expected.baseRef + " @ " + expected.baseSha.substring(0,12))
+    } else if (expected.headSha) lines.push("Commit " + expected.headSha.substring(0,12) + " → " + expected.baseRef)
     if (expected.head_sha) lines.push("Commit " + expected.head_sha.substring(0,12) + " · attempt " + expected.run_attempt)
     for (var i = 0; i < selected.fields.length; i++) {
       var f = selected.fields[i]
@@ -179,6 +219,24 @@ Popup {
             readonly property var firstControl: modelData.options ? methodChooser : editor
             Layout.fillWidth: true
             LabelText { text: modelData.label + (modelData.required ? " *" : "") }
+            RowLayout {
+              Layout.fillWidth: true
+              visible: root.canPick(modelData.key) && !modelData.options
+              Button { text: "Browse choices"; enabled: !picker.running; onClicked: root.pick(modelData.key,false) }
+              Button { text: "Next choices"; visible: !!root.candidates[modelData.key] && root.candidates[modelData.key].more; enabled: !picker.running; onClicked: root.pick(modelData.key,true) }
+            }
+            ComboBox {
+              Layout.fillWidth: true
+              visible: !!root.candidates[modelData.key]
+              textRole: "label"
+              model: [{value:"",label:"Select to insert…"}].concat(root.candidates[modelData.key] ? root.candidates[modelData.key].items : [])
+              onActivated: if (currentIndex > 0) {
+                var value = model[currentIndex].value
+                var previous = root.values[modelData.key] || ""
+                root.setValue(modelData.key, modelData.multiline ? previous + (previous ? "\n" : "") + value : value)
+                currentIndex = 0
+              }
+            }
             ComboBox {
               id: methodChooser
               Layout.fillWidth: true
@@ -188,9 +246,19 @@ Popup {
               onActivated: root.setValue(modelData.key, currentText)
               Accessible.name: modelData.label
             }
+            ComboBox {
+              Layout.fillWidth: true
+              visible: !!modelData.suggestions
+              model: ["Insert a suggestion…"].concat(modelData.suggestions || [])
+              onActivated: if (currentIndex > 0) {
+                var value = root.values[modelData.key] || ""
+                root.setValue(modelData.key, value + (value ? "\n" : "") + currentText)
+                currentIndex = 0
+              }
+            }
             ScrollView {
               Layout.fillWidth: true
-              Layout.preferredHeight: Style.space(modelData.multiline ? 110 : 42)
+              Layout.preferredHeight: Style.space(modelData.code ? 260 : (modelData.multiline ? 110 : 42))
               visible: !modelData.options
               TextArea {
                 id: editor
@@ -198,7 +266,7 @@ Popup {
                 text: root.values[modelData.key] || ""
                 onTextChanged: if (activeFocus) root.setValue(modelData.key, text)
                 textFormat: TextEdit.PlainText
-                wrapMode: TextEdit.Wrap
+                wrapMode: modelData.code ? TextEdit.NoWrap : TextEdit.Wrap
                 selectByMouse: true
                 color: Color.foreground
                 font.family: Style.font.family
@@ -220,7 +288,8 @@ Popup {
           }
         }
         LabelText { visible: root.stage === 2; text: root.confirmationText() }
-        LabelText { visible: root.stage === 2; text: "Confirm to apply this action on GitHub."; color: Color.accent }
+        LabelText { visible: root.stage === 2; text: root.localAction ? "Confirm to update your local workspace." : "Confirm to apply this action on GitHub."; color: Color.accent }
+        LabelText { visible: !!root.pickerError; text: root.pickerError; color: Color.urgent }
         LabelText { visible: !!root.error; text: root.error; color: Color.urgent }
       }
     }

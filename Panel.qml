@@ -34,7 +34,10 @@ Item {
     { "id": "pulls", "label": "PULL REQUESTS", "key": "3", "glyph": "󰘬" },
     { "id": "discussions", "label": "DISCUSSIONS", "key": "4", "glyph": "󰍩" },
     { "id": "ci", "label": "CI", "key": "5", "glyph": "󰗡" },
-    { "id": "search", "label": "SEARCH", "key": "6", "glyph": "⌕" }
+    { "id": "search", "label": "SEARCH", "key": "6", "glyph": "⌕" },
+    { "id": "repositories", "label": "REPOSITORIES", "key": "7", "glyph": "󰳏" },
+    { "id": "stars", "label": "STARS", "key": "8", "glyph": "★" },
+    { "id": "saved", "label": "SAVED VIEWS", "key": "9", "glyph": "󰆓" }
   ]
   readonly property var currentItems: itemsForSection(sectionIndex)
   readonly property var currentItem: currentItems.length > 0
@@ -59,6 +62,9 @@ Item {
 
   function close() {
     if (reader.posting) return
+    reader.saveDraft()
+    reader.savePosition()
+    if (github && typeof github.flushLocal === "function") github.flushLocal()
     closingFromHost = true
     opened = false
     window.visible = false
@@ -66,7 +72,7 @@ Item {
   }
 
   function dismiss() {
-    if (shell && typeof shell.hide === "function") shell.hide("omarchy.github")
+    if (shell && typeof shell.hide === "function") shell.hide("tcballard.github")
     else close()
   }
 
@@ -77,6 +83,7 @@ Item {
     if (index === 2) return github.pullRequests
     if (index === 3) return github.discussions
     if (index === 5) return github.searchResults || []
+    if (index >= 6) return []
     return github.ci
   }
 
@@ -98,7 +105,7 @@ Item {
     itemIndex = Math.max(0, Math.min(currentItems.length - 1, itemIndex))
   }
 
-  function selectSection(index) {
+  function selectSection(index, explore) {
     if (reader.posting || reader.actionOpen) return
     reader.saveDraft()
     readerOpen = false
@@ -108,10 +115,24 @@ Item {
     focusArea = "items"
     itemList.positionViewAtBeginning()
     dashboardFocus.forceActiveFocus()
+    if (next >= 6 && explore !== false) openCollection(["repositories", "stars", "saved"][next - 6])
+  }
+
+  function openCollection(collection, repo) {
+    if (reader.posting || reader.actionOpen) return
+    readerOpen = true
+    reader.showItem({kind:"collection",collection:collection,repo:repo || ""}, false)
+  }
+  function openCompleteView() {
+    if (sectionIndex === 0) openCollection("inbox")
+    else if (sectionIndex === 1) openCollection("issues")
+    else if (sectionIndex === 2) openCollection("pulls")
+    else if (currentItem) openCollection(sectionIndex === 3 ? "discussions" : "runs", currentItem.repo)
+    else openCollection("repositories")
   }
 
   function moveSection(delta) {
-    selectSection(Math.max(0, Math.min(sections.length - 1, sectionIndex + delta)))
+    selectSection(Math.max(0, Math.min(sections.length - 1, sectionIndex + delta)), false)
   }
 
   function moveItem(delta) {
@@ -137,7 +158,8 @@ Item {
 
   function refreshDashboard() {
     if (!github) return
-    if (sectionIndex === 5 && github.searchPage > 0) github.search(github.searchFilters, false)
+    if (readerOpen) reader.refresh()
+    else if (sectionIndex === 5 && github.searchPage > 0) github.search(github.searchFilters, false)
     else github.refresh()
   }
 
@@ -153,8 +175,10 @@ Item {
 
   function createIssue() {
     if (reader.busy || reader.actionOpen) return
+    var repo = readerOpen && reader.item ? reader.item.repo : (currentItem ? currentItem.repo : "")
     readerOpen = true
-    reader.newIssue(currentItem ? currentItem.repo : "")
+    if (repo) reader.showItem({kind:"templates",repo:repo},false)
+    else reader.newIssue("")
   }
 
   function openCurrentItem() {
@@ -214,13 +238,13 @@ Item {
     if (github.lastError !== "") return github.lastError.toUpperCase()
     if (github.partial) return "PARTIAL DATA · CHECK GH PERMISSIONS"
     if (github.attentionCount > 0) return github.attentionCount + " ATTENTION SIGNALS"
-    return "NOTHING WAITING ON YOU"
+    return "NO SIGNALS IN THIS SNAPSHOT"
   }
 
   function emptyTitle() {
     if (sectionIndex === 5) return github && github.searching ? "Searching GitHub…" : (github && github.searchPage ? "No matches" : "Search issues and PRs")
     if (github && github.refreshing) return "Checking GitHub…"
-    if (sectionIndex === 0) return "Inbox zero"
+    if (sectionIndex === 0) return "No unread notifications in this snapshot"
     if (sectionIndex === 1) return "No assigned issues"
     if (sectionIndex === 2) return "No open pull requests"
     if (sectionIndex === 3) return "No recent discussions"
@@ -250,7 +274,7 @@ Item {
 
     onVisibleChanged: {
       if (!visible && !root.closingFromHost && root.shell && typeof root.shell.hide === "function")
-        root.shell.hide("omarchy.github")
+        root.shell.hide("tcballard.github")
     }
 
     FocusScope {
@@ -287,7 +311,7 @@ Item {
         } else if (event.key === Qt.Key_R) {
           root.refreshDashboard()
           event.accepted = true
-        } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_6) {
+        } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
           root.selectSection(event.key - Qt.Key_1)
           event.accepted = true
 
@@ -315,6 +339,7 @@ Item {
           event.accepted = true
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_O || event.key === Qt.Key_Right || event.key === Qt.Key_L) {
           if (root.focusArea === "sections" && root.sectionIndex === 5) root.openSearch()
+          else if (root.sectionIndex >= 6) root.openCollection(["repositories", "stars", "saved"][root.sectionIndex - 6])
           else if (root.focusArea === "sections") root.focusArea = "items"
           else root.openCurrentItem()
           event.accepted = true
@@ -357,6 +382,11 @@ Item {
 
           Item { Layout.fillWidth: true }
 
+          Controls.Button {
+            text: "Open link"
+            enabled: !reader.posting && !reader.actionOpen
+            onClicked: { root.readerOpen = true; reader.openLinkDialog() }
+          }
           Controls.Button {
             text: "Search /"
             enabled: !reader.posting && !reader.actionOpen
@@ -402,6 +432,22 @@ Item {
           onSubmitted: function(filters) { root.runSearch(filters) }
           onResultsRequested: { root.focusArea = "items"; dashboardFocus.forceActiveFocus() }
         }
+        Flow {
+          Layout.fillWidth: true
+          spacing: Style.space(6)
+          visible: !root.readerOpen && root.sectionIndex < 5
+          Controls.Button { text: "Browse all / filter"; onClicked: root.openCompleteView() }
+          Controls.Button { text: "Pinned repositories"; onClicked: root.openCollection("pinned") }
+          Controls.Button { text: "Recent repositories"; onClicked: root.openCollection("recent") }
+          Text {
+            text: "Recent snapshot: 30 notifications/issues/PRs; CI and discussions from 16 active non-fork repos."
+            color: root.muted
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            wrapMode: Text.Wrap
+            width: Math.min(500, window.width - 40)
+          }
+        }
         RowLayout {
           Layout.fillWidth: true
           visible: root.sectionIndex === 5 && !root.readerOpen
@@ -442,7 +488,7 @@ Item {
               spacing: Style.space(2)
 
               Text {
-                text: "ATTENTION"
+                text: "WORKSPACE"
                 color: root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -538,7 +584,7 @@ Item {
               Item { Layout.fillHeight: true }
 
               Text {
-                text: "↑ ↓: select\nEnter / →: open\n← / Backspace: back"
+                text: "Dashboard = recent signals\nBrowse all for complete lists\n↑ ↓: select · Enter: open"
                 color: root.muted
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -551,7 +597,7 @@ Item {
           }
 
           Rectangle {
-            visible: !(root.compactMode && root.readerOpen)
+            visible: !(root.compactMode && root.readerOpen) && !(root.readerOpen && reader.item && ["collection", "repository", "code", "review-page", "thread-page", "thread", "workflow", "templates", "template"].indexOf(reader.item.kind) >= 0)
             border.width: !root.readerOpen && root.focusArea === "items" ? 1 : 0
             border.color: root.accent
             Layout.preferredWidth: Style.space(280)

@@ -4,7 +4,13 @@ Local user-plugin version of tcballard/omarchy PR #2, with an internal thread re
 
 ## Install and update
 
-Requires Omarchy with the Quickshell plugin API, Python 3, and GitHub CLI authenticated with `gh auth login --hostname github.com`. Your token must have access to the repositories and actions you use; inbox notifications additionally need notification access.
+The 0.4.0 workspace adds repository and star browsing, saved views, paginated
+lists, native code/README navigation, durable drafts, batch reviews, issue and
+workflow forms, native PR conflict resolution, and release/asset management. Start with **Repositories** or
+**Stars**, or use **Browse all / filter** from an attention section. See the
+[workspace guide](WORKSPACE_GUIDE.md) for the new workflows and their limits.
+
+Requires Omarchy with the Quickshell plugin API, Python 3, Git 2.38+ for conflict resolution, and GitHub CLI authenticated with `gh auth login --hostname github.com`. Your token must have access to the repositories and actions you use; inbox notifications additionally need notification access.
 
 Install from this repository on a new machine:
 
@@ -23,7 +29,7 @@ omarchy plugin remove tcballard.github
 
 Remove any shortcut you added separately. Removal leaves your GitHub CLI login and the dashboard cache at `$XDG_STATE_HOME/omarchy/github/dashboard.json` (normally `~/.local/state/omarchy/github/dashboard.json`) intact. Delete that cache separately if you no longer want its stored repository and notification metadata.
 
-The panel launches bundled Python helpers, which invoke `gh` to access GitHub's API using your existing authentication. Dashboard refreshes run periodically while loaded; reader requests, searches, and confirmed management actions run on demand. The dashboard cache is written locally; reply drafts stay in memory until the shell restarts. Installation does not replace user configuration or create keyboard bindings. GitHub changes use your account permissions and require explicit UI actions and the documented confirmations.
+The panel launches bundled Python helpers, which invoke `gh` to access GitHub's API using your existing authentication. Dashboard refreshes run periodically while loaded; reader requests, searches, and confirmed management actions run on demand. The dashboard cache is written locally; reply drafts and workspace preferences are saved locally per verified account. Installation does not replace user configuration or create keyboard bindings. GitHub changes use your account permissions and require explicit UI actions and the documented confirmations.
 
 The manifest keeps the original `tcballard.github` ID so existing configurations continue to work. Derived from the GitHub panel in [tcballard/omarchy PR #2](https://github.com/tcballard/omarchy/pull/2); the original Omarchy MIT license is included.
 
@@ -56,17 +62,17 @@ In a reply:
 - Letters, arrows, shortcuts for editing, and Enter edit the text; Enter inserts a newline.
 - Tab/Shift+Tab move between the editor and controls.
 - Escape keeps the draft and returns to reading. Another Escape returns to the list.
-- Posting requires explicitly activating Post reply. Drafts are retained per item while this plugin instance remains loaded; they do not survive a shell restart.
+- Posting requires explicitly activating Post reply. Reply drafts are saved per verified account and restored after restarting the shell; see the workspace guide for persistence limits.
 
 ## Verification
 
-Run `tests/run` for the portable backend checks and archive build. Run `tests/keyboard` separately on a machine with Qt Quick Test installed for the keyboard and confirmation tests.
+Install test dependencies with `python3 -m pip install PyYAML==6.0.3 graphql-core==3.2.12 PySide6==6.11.2`, then run `tests/run` for the portable backend checks and archive build. Run `tests/keyboard` separately on a machine with Qt Quick Test installed for the keyboard and confirmation tests.
 
 `tests/keyboard` runs real Qt key/focus tests against Reader.qml. It substitutes only the Quickshell process wrapper and theme singletons because those plugins are linked into the Quickshell executable. All controls and event handling are real Qt Quick; no subprocesses or GitHub actions run.
 
 `python3 -m unittest discover -s tests -v` runs the helper tests. `python3 tests/live_reader.py` optionally reads real GitHub data through your existing login, without mutating anything.
 
-The native reader deliberately renders remote text as selectable plain text. Some large review/file/log responses are capped with an explicit message. CI notifications without a run ID show recent repository runs and explain that limitation. PRs have Approve, Request changes, and Merge dialogs. Each shows the repository, number, source and target branch, commit, and current readiness. Reviews accept an optional approval note or required change-request note. Merging offers only repository-enabled methods. The backend rechecks head SHA, target branch, state, and account permissions before submitting; merge requests also carry GitHub's SHA precondition. Direct merges respect GitHub rules. The Actions menu additionally supports enabling/disabling auto-merge and joining/leaving a merge queue, with separate explicit confirmation. It never bypasses queue ordering, uses admin merge overrides, or deletes the source branch.
+The native reader renders a restricted Markdown subset while escaping remote HTML. Source, diffs and logs remain selectable plain text. Some large review/file/log responses are capped with an explicit message. CI notifications without a run ID show recent repository runs and explain that limitation. PRs have Approve, Request changes, and Merge dialogs. Each shows the repository, number, source and target branch, commit, and current readiness. Reviews accept an optional approval note or required change-request note. Merging offers only repository-enabled methods. The backend rechecks head SHA, target branch, state, and account permissions before submitting; merge requests also carry GitHub's SHA precondition. Direct merges respect GitHub rules. The Actions menu additionally supports enabling/disabling auto-merge and joining/leaving a merge queue, with separate explicit confirmation. It never bypasses queue ordering, uses admin merge overrides, or deletes the source branch.
 
 PR writes are tested with a fake transport; the Qt confirmation tests only emit captured requests. No live approvals or merges are performed by tests.
 

@@ -19,6 +19,11 @@ Rectangle {
   property bool composing: false
   property int generation: 0
   property var pending: null
+  property string findText: ""
+  property int findOffset: 0
+  property string externalLink: ""
+  property bool restorePosition: false
+  property string readerAccount: ""
   property bool busy: worker.running || pending !== null
   property bool posting: (worker.running && worker.request && worker.request.op === "action") || (pending !== null && pending.request.op === "action")
   readonly property bool actionOpen: prAction.visible || actions.visible
@@ -27,18 +32,92 @@ Rectangle {
     for (var i = 0; i < tabs.length; i++) if (tabs[i].id === tabId) return tabs[i]
     return tabs.length ? tabs[0] : null
   }
-  readonly property string draftKey: item ? JSON.stringify([item.id || "", item.repo, item.kind, item.number || "", item.sha || ""]) : ""
+  readonly property string draftKey: stateKey(item)
   signal back()
+  Component.onCompleted: readerAccount = service && service.verifiedAccount ? service.verifiedAccount : ""
   color: Qt.rgba(Color.foreground.r, Color.foreground.g, Color.foreground.b, 0.025)
   radius: Style.cornerRadius
 
+  function stateKey(value) {
+    if (!value) return ""
+    var fields = ["repo","kind","number","sha","path","ref","collection","section","page","cursor","view","query","owner","state","scope","mode","reason","workflow","branch","thread","comment","tag","scan"]
+    var identity = []
+    for (var i = 0; i < fields.length; i++) identity.push(value[fields[i]] || "")
+    if (value.kind === "notification") identity.push(value.id)
+    return JSON.stringify(identity)
+  }
+
   function saveDraft() {
-    if (draftKey) drafts[draftKey] = composer.text
+    if (draftKey) {
+      drafts[draftKey] = composer.text
+      if (service && typeof service.saveLocal === "function") service.saveLocal("drafts", draftKey, composer.text)
+    }
+  }
+  function savePosition() {
+    if (draftKey && detail && service && typeof service.saveLocal === "function")
+      service.saveLocal("positions", draftKey, {tab:tabId,y:scroll.contentItem.contentY})
+  }
+  function openLinkDialog() { linkPopup.open(); Qt.callLater(function() { linkInput.forceActiveFocus() }) }
+  function openLink(url) {
+    if (busy || actionOpen) return
+    externalLink = ""
+    if (/^https:\/\//.test(url) && !/^https:\/\/github\.com\//.test(url)) {
+      externalLink = url
+      notice = "External reference: " + url
+      return
+    }
+    queue({op:"navigate",url:url,repo:item ? item.repo : ""}, false)
+  }
+  function findNext() {
+    if (!findText || !activeTab) return
+    var start = Math.max(0, selectedBlock)
+    for (var j = 0; j < activeTab.blocks.length; j++) {
+      var i = (start + j) % activeTab.blocks.length
+      var b = activeTab.blocks[i]
+      var position = b.body.toLowerCase().indexOf(findText.toLowerCase(), j === 0 ? findOffset : 0)
+      if (position >= 0) {
+        selectedBlock = i
+        findOffset = position + findText.length
+        var entry = contentBlocks.itemAt(i)
+        if (entry) {
+          entry.bodyControl.select(position, position + findText.length)
+          var rect = entry.bodyControl.positionToRectangle(position)
+          scroll.contentItem.contentY = Math.min(entry.bodyControl.mapToItem(scroll.contentItem,0,rect.y).y, Math.max(0,scroll.contentHeight-scroll.height))
+        }
+        return
+      }
+    }
+    findOffset = 0
+    notice = "No further matches on this page. Find again to wrap."
+  }
+
+  Connections {
+    target: root.service
+    ignoreUnknownSignals: true
+    function onLocalStateLoaded() {
+      if (root.service && root.service.localDrafts) {
+        root.drafts = Object.assign({}, root.service.localDrafts, root.drafts)
+        if (!composer.text && root.draftKey) composer.text = root.drafts[root.draftKey] || ""
+      }
+    }
+    function onVerifiedAccountChanged() {
+      var initial = root.readerAccount === ""
+      root.readerAccount = root.service.verifiedAccount
+      root.drafts = ({})
+      root.detail = null
+      root.history = []
+      root.generation++
+      root.pending = null
+      if (!initial) root.item = null
+      composer.text = ""
+      if (initial && root.item) root.refresh()
+    }
   }
 
   function showItem(value, nested) {
     if (posting || actionOpen) return
     saveDraft()
+    savePosition()
     if (nested && item) history = history.concat([item])
     else if (!nested) history = []
     item = JSON.parse(JSON.stringify(value))
@@ -48,8 +127,11 @@ Rectangle {
     notice = ""
     selectedBlock = -1
     tabId = "conversation"
-    composer.text = drafts[draftKey] || ""
+    composer.text = drafts[draftKey] || (service && service.localDrafts ? service.localDrafts[draftKey] : "") || ""
     composing = composer.text.length > 0
+    findText = ""
+    findOffset = 0
+    restorePosition = true
     refresh()
     focusReader()
   }
@@ -57,6 +139,7 @@ Rectangle {
   function goBack() {
     if (posting || actionOpen) return
     saveDraft()
+    savePosition()
     if (history.length) {
       var previous = history[history.length - 1]
       history = history.slice(0, -1)
@@ -82,7 +165,7 @@ Rectangle {
   }
 
   function openActions() {
-    if (busy || !detail) return
+    if (busy || !detail || detail.cached) return
     var choices = []
     if (detail.pr) choices = [
       {id:"approve", label:"Approve pull request", legacy:true},
@@ -115,6 +198,7 @@ Rectangle {
   }
 
   function queue(request, append) {
+    request.account = service && service.verifiedAccount ? service.verifiedAccount : ""
     pending = {request: request, generation: generation, append: append}
     startPending()
   }
@@ -155,6 +239,7 @@ Rectangle {
     selectedBlock = -1
     tabId = tabs[i].id
     scroll.contentItem.contentY = 0
+    savePosition()
     var button = tabButtons.itemAt(i)
     if (button) button.forceActiveFocus(Qt.TabFocusReason)
   }
@@ -219,8 +304,8 @@ Rectangle {
   function openBlock(index) {
     if (busy || actionOpen || !activeTab) return
     var block = activeTab.blocks[index]
-    if (block.operations && block.operations.length) actions.prepare(detail, block.operations)
-    else if (block.action) showItem(block.action, true)
+    if (block.action) showItem(block.action, true)
+    else if (block.operations && block.operations.length) actions.prepare(detail, block.operations)
   }
 
   function enterDetail() {
@@ -242,10 +327,15 @@ Rectangle {
 
   function handleKey(event) {
     event.accepted = false
-    if (actionOpen) return
+    if (actionOpen || linkPopup.visible) return
+    if (findInput.activeFocus) {
+      if (event.key === Qt.Key_Escape) { focusReader(); event.accepted = true }
+      return
+    }
     var tab = event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab
     var shift = (event.modifiers & Qt.ShiftModifier) !== 0
     var control = (event.modifiers & Qt.ControlModifier) !== 0
+    if (control && event.key === Qt.Key_F) { findInput.forceActiveFocus(); findInput.selectAll(); event.accepted = true; return }
     if (tab && !(event.modifiers & (Qt.AltModifier | Qt.MetaModifier))) {
       if (control && !composer.activeFocus) moveTab(shift ? -1 : 1)
       else moveFocus(shift || event.key === Qt.Key_Backtab)
@@ -344,11 +434,14 @@ Rectangle {
                 root.detail = null
               }
             }
+          } else if (request.op === "navigate") {
+            root.showItem(value.navigate, true)
           } else if (request.op === "action") {
             root.notice = value.message
             if (request.action === "reply") {
               composer.text = ""
               root.drafts[root.draftKey] = ""
+              if (root.service && typeof root.service.saveLocal === "function") root.service.saveLocal("drafts",root.draftKey,"")
               root.composing = false
               root.queue({op: "detail", item: root.item, page: 1}, false)
             } else if (request.action === "mark-read" && root.detail) {
@@ -377,7 +470,7 @@ Rectangle {
               actions.finish("")
               if (root.item) root.queue({op: "detail", item: root.item, page: 1}, false)
             }
-            if (root.service) root.service.refresh()
+            if (root.service && !value.local) root.service.refresh()
           } else {
             if (append && root.detail) {
               for (var i = 0; i < value.tabs.length; i++) {
@@ -389,7 +482,17 @@ Rectangle {
               }
             }
             root.detail = value
-            if (!append) scroll.contentItem.contentY = 0
+            if (!append) {
+              scroll.contentItem.contentY = 0
+              if (root.restorePosition && root.service && root.service.localPositions) {
+                var position = root.service.localPositions[root.draftKey]
+                if (position) {
+                  root.tabId = position.tab
+                  Qt.callLater(function() { scroll.contentItem.contentY = Math.max(0,Math.min(position.y,scroll.contentHeight-scroll.height)) })
+                }
+              }
+              root.restorePosition = false
+            }
           }
         } catch (e) {
           root.error = "Could not read GitHub's response. " + String(errors.text || e).substring(0, 300)
@@ -434,6 +537,21 @@ Rectangle {
         (button.hovered || button.checked ? Style.selectedFillFor(Color.foreground, Color.accent) : Style.hoverFillFor(Color.foreground, Color.accent))
       border.width: button.activeFocus ? 1 : 0
       border.color: Color.accent
+    }
+  }
+
+  Popup {
+    id: linkPopup
+    modal: true
+    focus: true
+    width: Math.min(root.width - 20, 560)
+    x: (root.width-width)/2
+    y: 40
+    background: Rectangle { color: Color.background; border.color: Color.accent }
+    contentItem: ColumnLayout {
+      Text { text: "Open GitHub link or owner/repository"; color: Color.foreground; font.family: Style.font.family }
+      TextField { id: linkInput; Layout.fillWidth: true; placeholderText: "https://github.com/owner/repo/pull/123"; onAccepted: { root.openLink(text); linkPopup.close() } }
+      Button { text: "Open in workspace"; onClicked: { root.openLink(linkInput.text); linkPopup.close() } }
     }
   }
 
@@ -509,6 +627,38 @@ Rectangle {
       }
     }
 
+    Flow {
+      Layout.fillWidth: true
+      spacing: Style.space(5)
+      DeskButton { text: "← Back"; enabled: !root.posting; onClicked: root.goBack() }
+      DeskButton { text: "Repository"; visible: root.detail && !!root.detail.repositoryTarget; enabled: !root.busy; onClicked: root.showItem(root.detail.repositoryTarget, true) }
+      DeskButton { text: "Pinned"; visible: root.item && root.item.kind === "collection" && root.item.collection === "repositories"; onClicked: root.showItem({kind:"collection",repo:"",collection:"pinned"},true) }
+      DeskButton { text: "Recent"; visible: root.item && root.item.kind === "collection" && root.item.collection === "repositories"; onClicked: root.showItem({kind:"collection",repo:"",collection:"recent"},true) }
+      DeskButton { text: "Previous page"; visible: root.detail && !!root.detail.previousTarget; enabled: !root.busy; onClicked: root.showItem(root.detail.previousTarget, false) }
+      DeskButton { text: root.detail ? root.detail.nextLabel || "Next page" : "Next page"; visible: root.detail && !!root.detail.nextTarget; enabled: !root.busy; onClicked: root.showItem(root.detail.nextTarget, true) }
+      DeskButton { text: "Open external reference"; visible: !!root.externalLink; onClicked: Qt.openUrlExternally(root.externalLink) }
+    }
+    Text {
+      Layout.fillWidth: true
+      visible: root.detail && !!root.detail.pageLabel
+      text: root.detail ? root.detail.pageLabel || "" : ""
+      color: Color.muted
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+    }
+    RowLayout {
+      Layout.fillWidth: true
+      TextField {
+        id: findInput
+        objectName: "readerFind"
+        Layout.fillWidth: true
+        placeholderText: "Find in this page, diff or log…"
+        onTextChanged: { root.findText = text; root.findOffset = 0 }
+        onAccepted: root.findNext()
+      }
+      DeskButton { text: "Find next"; onClicked: root.findNext() }
+    }
+
     ScrollView {
       id: scroll
       objectName: "readerScroll"
@@ -534,9 +684,10 @@ Rectangle {
           objectName: "threadBody"
           Layout.fillWidth: true
           Layout.preferredHeight: contentHeight
-          visible: root.detail && root.detail.body.length > 0 && (!root.activeTab || ["conversation", "checks", "logs", "release"].indexOf(root.activeTab.id) >= 0)
-          text: root.detail ? root.detail.body : ""
-          textFormat: TextEdit.PlainText
+          visible: root.detail && root.detail.body.length > 0
+          text: root.detail ? root.detail.richBody || root.detail.body : ""
+          textFormat: root.detail && root.detail.richBody ? TextEdit.RichText : TextEdit.PlainText
+          onLinkActivated: function(link) { root.openLink(link) }
           readOnly: true
           activeFocusOnTab: false
           Keys.priority: Keys.BeforeItem
@@ -548,6 +699,10 @@ Rectangle {
           selectedTextColor: Color.background
           font.family: Style.font.family
           font.pixelSize: Style.font.body
+        }
+        Repeater {
+          model: root.detail ? root.detail.images || [] : []
+          delegate: ImagePreview { required property var modelData; entry: modelData }
         }
         Text {
           Layout.fillWidth: true
@@ -564,6 +719,7 @@ Rectangle {
             required property int index
             required property var modelData
             property alias drillButton: drillAction
+            property alias bodyControl: blockText
             Layout.fillWidth: true
             spacing: Style.space(8)
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Color.muted; opacity: 0.25 }
@@ -578,10 +734,12 @@ Rectangle {
               wrapMode: Text.WrapAnywhere
             }
             TextEdit {
+              id: blockText
               Layout.fillWidth: true
               Layout.preferredHeight: contentHeight
-              text: modelData.body
-              textFormat: TextEdit.PlainText
+              text: modelData.richBody || modelData.body
+              textFormat: modelData.richBody ? TextEdit.RichText : TextEdit.PlainText
+              onLinkActivated: function(link) { root.openLink(link) }
               readOnly: true
           activeFocusOnTab: false
           Keys.priority: Keys.BeforeItem
@@ -594,6 +752,10 @@ Rectangle {
               font.family: Style.font.family
               font.pixelSize: Style.font.body
             }
+            Repeater {
+              model: modelData.images || []
+              delegate: ImagePreview { required property var modelData; entry: modelData }
+            }
             DeskButton {
               id: drillAction
               drillControl: true
@@ -601,6 +763,12 @@ Rectangle {
               text: modelData.operationLabel || (modelData.action && modelData.action.kind === "job" ? "Read job logs" : "Inspect run")
               enabled: !root.posting
               onClicked: root.openBlock(index)
+            }
+            DeskButton {
+              visible: !!modelData.action && (modelData.operations || []).length > 0 && !(root.detail && root.detail.cached)
+              text: "Actions for this item…"
+              enabled: !root.busy
+              onClicked: actions.prepare(root.detail, modelData.operations)
             }
           }
         }
@@ -643,7 +811,7 @@ Rectangle {
           font.family: Style.font.family
           font.pixelSize: Style.font.body
           background: Rectangle { color: Color.background; border.color: composer.activeFocus ? Color.accent : Color.muted; radius: Style.cornerRadius }
-          onTextChanged: if (root.draftKey) root.drafts[root.draftKey] = text
+          onTextChanged: if (root.draftKey) root.saveDraft()
         }
       }
       RowLayout {
@@ -675,7 +843,7 @@ Rectangle {
       DeskButton {
         drillControl: true
         text: "Actions… (A)"
-        enabled: !root.busy && !!root.detail
+        enabled: !root.busy && !!root.detail && !root.detail.cached
         onClicked: root.openActions()
       }
       DeskButton {
