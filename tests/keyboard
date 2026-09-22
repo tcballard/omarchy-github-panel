@@ -1,5 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 TEST_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_CONTROLS_STYLE=Basic \
-  /usr/lib/qt6/bin/qmltestrunner -import "$TEST_DIR/qml/imports" -input "$TEST_DIR/qml"
+export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_CONTROLS_STYLE=Basic
+if [[ -x /usr/lib/qt6/bin/qmltestrunner ]]; then
+  exec /usr/lib/qt6/bin/qmltestrunner -import "$TEST_DIR/qml/imports" -input "$TEST_DIR/qml"
+fi
+exec python3 "$TEST_DIR/qt_runner.py"

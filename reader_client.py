@@ -27,13 +27,27 @@ def transport(args, payload=None):
     except OutputLimitExceeded as exc:
         raise GhError('This response is too large to load safely. Try a smaller thread or job.', 'response-limit') from exc
     if result.returncode:
-        raise GhError(result.stderr.decode('utf-8', 'replace')[:600].strip() or 'GitHub request failed.')
+        message=result.stderr.decode('utf-8', 'replace')[:600].strip() or 'GitHub request failed.'
+        lower=message.lower()
+        kind='auth' if any(x in lower for x in ('http 401','auth login','bad credentials')) else 'permission' if any(x in lower for x in ('http 403','http 404','resource not accessible')) else 'offline' if any(x in lower for x in ('error connecting','no such host','network is unreachable','connection refused','temporary failure in name resolution')) else 'fetch'
+        raise GhError(message,kind)
     return result.stdout.decode('utf-8', 'replace')
 
 
 class Client:
-    def __init__(self, runner=transport):
+    def __init__(self, runner=transport, account=''):
         self.runner = runner
+        self.account = account
+
+    def response(self, endpoint, method='GET', payload=None):
+        args = ['api', '--hostname', 'github.com', '-X', method, endpoint, '--include']
+        if payload is not None: args += ['--input', '-']
+        raw = self.runner(args, payload).replace('\r\n','\n')
+        if not raw.startswith('HTTP/'):
+            raise GhError('GitHub did not return response headers.', 'parse')
+        headers, body = raw.split('\n\n',1)
+        fields = dict((k.lower(),v.strip()) for line in headers.splitlines()[1:] if ':' in line for k,v in [line.split(':',1)])
+        return (json.loads(body) if body.strip() else {}), fields
 
     def api(self, endpoint, method='GET', payload=None):
         args = ['api', '--hostname', 'github.com', '-X', method, endpoint]
@@ -85,6 +99,9 @@ class Client:
         return {'repo': repo, 'kind': kind, 'number': number}
 
     def detail(self, item, page=1, cursor=None):
+        import workspace
+        if item.get('kind') in workspace.KINDS:
+            return workspace.detail(self, item)
         t = self.target(item)
         repo, kind = t['repo'], t['kind']
         base = f'repos/{repo}'
@@ -111,18 +128,26 @@ class Client:
             owner, name = repo.split('/')
             data = self.graph('''query($owner:String!,$name:String!,$n:Int!,$cursor:String) {
               repository(owner:$owner,name:$name) { discussion(number:$n) {
-                id title body closed locked author { login }
+                id title body closed locked updatedAt author { login }
                 comments(first:30,after:$cursor) { pageInfo { hasNextPage endCursor }
-                  nodes { author { login } body createdAt replies(first:30) {
+                  nodes { id isAnswer author { login } body createdAt replies(first:30) {
                     totalCount nodes { author { login } body createdAt } } } }
               } } }''', {'owner':owner, 'name':name, 'n':n, 'cursor':cursor})
             node = (data.get('repository') or {}).get('discussion')
             if not node:
                 raise GhError('Discussion not found or not accessible.')
             result.update(title=node['title'], body=node.get('body') or '', canReply=not node.get('locked'), discussionId=node['id'])
+            if node.get('updatedAt'):
+                result['actions'].append(lifecycle.choice('discussion-close','Reopen discussion' if node['closed'] else 'Close discussion',
+                    'Change this discussion’s open state.',{'discussion':n,'updated':node['updatedAt']}))
             blocks = []
             for c in node['comments']['nodes']:
-                blocks.append(comment(c))
+                entry=comment(c)
+                if c.get('id'):
+                    entry.update(action={'kind':'discussion-replies','repo':repo,'number':n,'comment':c['id']},operationLabel='Read / reply to comment',operations=[
+                        lifecycle.choice('discussion-answer','Unmark answer' if c.get('isAnswer') else 'Mark as answer','Change the accepted answer.',
+                            {'discussion':n,'comment':c['id'],'answer':bool(c.get('isAnswer'))})])
+                blocks.append(entry)
                 replies = c['replies']
                 blocks.extend(comment(r, '↳ ') for r in replies['nodes'])
                 if replies['totalCount'] > len(replies['nodes']):
@@ -232,6 +257,18 @@ class Client:
         statuses = self.api(f'{base}/commits/{sha}/status?per_page=100')
         blocks = [block(c['name'], f"{c.get('conclusion') or c.get('status')}\n\n" +
                     '\n'.join(str((c.get('output') or {}).get(k) or '') for k in ('title','summary','text'))) for c in checks.get('check_runs',[])]
+        from navigation import resolve
+        repo=base.removeprefix('repos/')
+        for check,entry in zip(checks.get('check_runs',[]),blocks):
+            try:
+                destination=resolve(check.get('details_url') or '')
+                if destination.get('repo')==repo and destination.get('kind') in ('run','job'):
+                    entry.update(action=destination,operationLabel='Open check logs')
+            except GhError: pass
+            if not entry.get('action'):
+                entry.update(action={'kind':'collection','repo':repo,'collection':'runs','sha':sha},operationLabel='Find workflow for this commit')
+        blocks += [dict(block(c['name']+' · annotations','File and line diagnostics',{'kind':'collection','repo':repo,'collection':'annotations','number':c['id']}),operationLabel='Read annotations')
+                   for c in checks.get('check_runs',[]) if (c.get('output') or {}).get('annotations_count',0)>0]
         blocks += [block(c['context'], f"{c['state']}\n{c.get('description') or ''}") for c in statuses.get('statuses',[])]
         result['tabs'].append(tab('status', 'Checks', blocks))
         states = [c.get('conclusion') or c.get('status') for c in checks.get('check_runs', [])]
@@ -295,6 +332,9 @@ class Client:
         # Building these controls does not perform any mutation; only an explicit UI submit calls here.
         action = request.get('action')
         item = request.get('item') or {}
+        import workspace_actions
+        if action in workspace_actions.ACTIONS:
+            return workspace_actions.perform(self, request)
         if action in review_threads.ACTIONS:
             return review_threads.perform(self, request)
         if action in lifecycle.ACTIONS:
@@ -364,7 +404,9 @@ def tab(id, label, blocks):
 
 def comment(c, prefix=''):
     author = (c.get('user') or c.get('author') or {}).get('login','ghost')
-    return block(f"{prefix}@{author} · {c.get('created_at') or c.get('createdAt') or ''}", c.get('body') or '')
+    value=block(f"{prefix}@{author} · {c.get('created_at') or c.get('createdAt') or ''}", c.get('body') or '')
+    value['commentMeta']={'id':c.get('id'),'updated_at':c.get('updated_at')}
+    return value
 
 
 def file_blocks(files):
@@ -375,17 +417,33 @@ def main():
     try:
         raw = sys.stdin.readline(300000)
         req = json.loads(raw)
-        client = Client()
+        import desk_protocol
+        client = Client(account=str(req.get('account','')))
+        if req.get('op') in ('detail','action'):
+            # Keep private drafts and confirmation snapshots tied to the login
+            # that actually executes the request, including external gh switches.
+            if req.get('op')=='action' or not client.account:
+                login=client.api('user')['login']
+                if client.account and client.account!=login:
+                    raise GhError('The active GitHub account changed. Refresh the dashboard before continuing.', 'auth')
+                client.account=login
         if req.get('op') == 'detail':
             page = req.get('page',1)
             if not isinstance(page,int) or isinstance(page,bool) or not 1 <= page <= 1000:
                 raise GhError('Invalid comment page.', 'input')
-            result = client.detail(req['item'], page, req.get('cursor'))
+            result = desk_protocol.read(client, req['item'], page, req.get('cursor'))
         elif req.get('op') == 'action':
             result = client.action(req)
+        elif req.get('op') == 'state':
+            result = desk_protocol.state(client, req)
+        elif req.get('op') == 'pick':
+            result = desk_protocol.pick(client, req)
+        elif req.get('op') == 'navigate':
+            from navigation import resolve
+            result = {'ok':True, 'navigate':resolve(req.get('url',''),req.get('repo',''))}
         else:
             raise GhError('Invalid request.', 'input')
-    except (GhError, ValueError, KeyError, TypeError) as exc:
+    except (GhError, ValueError, KeyError, TypeError, OSError) as exc:
         result = {'ok':False, 'error':str(exc), 'errorKind':getattr(exc,'kind','parse')}
     print(json.dumps(result, ensure_ascii=False))
 
