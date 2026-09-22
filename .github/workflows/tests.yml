@@ -11,7 +11,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install test dependencies
-        run: python3 -m pip install PyYAML==6.0.3 PySide6==6.11.2 graphql-core==3.2.12
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0
+          python3 -m pip install PyYAML==6.0.3 PySide6==6.11.2 graphql-core==3.2.12
       - name: Test GitHub operations with mocked transport
         run: python3 -B -m unittest discover -s tests -v
       - name: Build plugin archive
