@@ -62,7 +62,12 @@ Portable verification on 22 September 2026:
 
 ## Target desktop smoke gate
 
-Before release, test on an actual Omarchy desktop with the existing gh login:
+Completed on Tom’s XPS: Tom confirmed all remaining local testing passed on
+22 September 2026 after updating to main at `8793d4b`. The supplied Familiar
+screenshot shows the running repository browser. This is owner-reported desktop
+evidence; the automated checks above were run separately.
+
+Completed checklist:
 
 - Open/close with the plugin binding, keyboard navigation, Escape/back, focus
   restoration, current theme, secondary monitor and normal scaling.
@@ -85,4 +90,5 @@ Before release, test on an actual Omarchy desktop with the existing gh login:
   drafts or cached details. Verify offline copies have no remote actions.
 
 No authenticated GitHub mutations or live Omarchy desktop checks were run in
-this environment. Those checks remain open; this branch is not a release.
+the build environment. Tom’s subsequent on-device confirmation closes the local
+smoke gate. No release or tag has been published as part of this documentation update.

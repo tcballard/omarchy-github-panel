@@ -6,19 +6,21 @@
 
 **Keep up with your repositories from your desktop.**
 
-A native GitHub panel for notifications, issues, pull requests and CI. Read a thread, inspect a diff, check a failing job or write a reply using your existing GitHub CLI login.
+A native GitHub workspace for repositories, stars, notifications, issues, pull requests and CI. Read threads, review changes, resolve merge conflicts and manage releases using your existing GitHub CLI login.
+
+![GitHub for Omarchy floating on Tom’s XPS with the Familiar theme, showing the repository browser.](docs/images/github-xps-familiar.png)
+
+*Running on Tom’s XPS with the Familiar theme. Screenshot supplied by Tom, 22 September 2026.*
 
 ## Everyday use
 
-The 0.4.0 workspace also brings repository and star browsing, saved views, durable drafts, release management and native PR conflict resolution. [Workspace guide →](WORKSPACE_GUIDE.md)
-
-Browse the dashboard or search for an issue or pull request. Open its reader for discussion, changes, review threads and checks. Actions such as posting, reviewing or merging have explicit review and confirmation steps. [Keyboard controls →](GUIDE.md#keyboard)
+Browse your repositories and stars, check the dashboard, or search for an issue or pull request. Open its reader for discussion, changes, review threads and checks. Actions such as posting, reviewing or merging have explicit review and confirmation steps. [Keyboard controls →](GUIDE.md#keyboard) · [Workspace guide →](WORKSPACE_GUIDE.md)
 
 ## Install
 
 [Available in the Omarchy Plugin Marketplace](https://plugins.omarchy.org/plugin.html?id=tcballard.github).
 
-Omarchy with the Quickshell plugin API, Python 3, Git 2.38+ for conflict resolution, and GitHub CLI authenticated with `gh auth login --hostname github.com`. Your login needs access to the repositories and notifications you use.
+Omarchy with the Quickshell plugin API, Python 3, Git 2.38+ for conflict resolution and GitHub CLI authenticated with `gh auth login --hostname github.com`. Your login needs access to the repositories and notifications you use. Issue and workflow forms also use `python-yaml`.
 
 ```bash
 omarchy plugin add https://github.com/tcballard/omarchy-github-panel.git --enable
@@ -48,7 +50,9 @@ The newer **0.4.0 workspace** is not covered by that verification. Normal instal
 
 Installation does not add a shortcut. Open the panel with `omarchy-shell shell summon tcballard.github`, or add your own binding.
 
-Dashboard metadata is cached locally; workspace preferences and reply drafts are saved per verified account. Removal keeps local data and your gh login. [Data and removal](GUIDE.md#install-and-update) · [Validation](VALIDATION.md)
+Drafts, saved views and workspace data are stored locally per account. Removal keeps that data and your GitHub login. [Data and removal](GUIDE.md#install-and-update) · [Validation](VALIDATION.md)
+
+Tested on Tom’s XPS with Familiar; all remaining local testing confirmed passed on 22 September 2026.
 
 Derived from the Omarchy GitHub panel; the original MIT licence is retained.
 
