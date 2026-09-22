@@ -79,9 +79,9 @@ Item {
       keyClick(Qt.Key_Up)
       compare(state().section,0)
       keyClick(Qt.Key_End)
-      compare(state().section,5)
+      compare(state().section,8)
       keyClick(Qt.Key_Down)
-      compare(state().section,5)
+      compare(state().section,8)
     }
   }
 }

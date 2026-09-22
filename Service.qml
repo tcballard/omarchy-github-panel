@@ -18,6 +18,60 @@ Item {
   property bool stale: false
   property bool refreshing: false
   property bool refreshPending: false
+  property string verifiedAccount: ""
+  property var localDrafts: ({})
+  property var localPositions: ({})
+  property var stateQueue: []
+  property var dirtyState: ({})
+  signal localStateLoaded()
+
+  function saveLocal(name, key, value) {
+    if (!verifiedAccount || key.length > 2000) return
+    var data = Object.assign({}, name === "drafts" ? localDrafts : localPositions)
+    data[key] = value
+    if (name === "drafts") localDrafts = data
+    else localPositions = data
+    var changes = Object.assign({}, dirtyState)
+    changes[name + ":" + key] = {op:"state",write:true,name:name,key:key,value:value,account:verifiedAccount}
+    dirtyState = changes
+    stateDebounce.restart()
+  }
+  function flushLocal() {
+    var requests = stateQueue.slice()
+    for (var key in dirtyState) requests.push(dirtyState[key])
+    dirtyState = ({})
+    stateQueue = requests
+    startState()
+  }
+  function startState() {
+    if (stateProcess.running || !stateQueue.length) return
+    stateProcess.request = stateQueue[0]
+    stateQueue = stateQueue.slice(1)
+    stateProcess.running = true
+  }
+  Timer { id: stateDebounce; interval: 700; onTriggered: root.flushLocal() }
+  Process {
+    id: stateProcess
+    property var request: ({})
+    command: ["python3", "-B", Qt.resolvedUrl("reader_client.py").toString().replace(/^file:\/\//, "")]
+    stdinEnabled: true
+    onStarted: write(JSON.stringify(request) + "\n")
+    stdout: StdioCollector { id: stateOutput; waitForEnd: true }
+    onExited: function(code) {
+      if (request.account === root.verifiedAccount) {
+        try {
+          var value = JSON.parse(stateOutput.text || "{}")
+          if (!value.ok) root.lastError = "Could not save workspace: " + (value.error || "No response")
+          else if (!request.write) {
+            root.localDrafts = Object.assign({}, value.drafts || {}, root.localDrafts)
+            root.localPositions = Object.assign({}, value.positions || {}, root.localPositions)
+            root.localStateLoaded()
+          }
+        } catch (e) { root.lastError = "Could not read saved workspace state." }
+      }
+      Qt.callLater(root.startState)
+    }
+  }
 
   property var searchResults: []
   property var searchFilters: ({})
@@ -122,6 +176,12 @@ Item {
         return
       }
       viewer = String(parsed.viewer || "")
+      if (!parsed.stale && viewer && viewer !== verifiedAccount) {
+        verifiedAccount = viewer
+        localDrafts = ({}); localPositions = ({}); dirtyState = ({})
+        stateQueue = [{op:"state",account:viewer}]
+        startState()
+      }
       notifications = Array.isArray(parsed.notifications) ? parsed.notifications : []
       issues = Array.isArray(parsed.issues) ? parsed.issues : []
       pullRequests = Array.isArray(parsed.pullRequests) ? parsed.pullRequests : []
