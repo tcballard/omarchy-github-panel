@@ -1,108 +1,68 @@
-# Native GitHub panel
+<h1 align="center">GitHub for Omarchy</h1>
 
-Local user-plugin version of tcballard/omarchy PR #2, with an internal thread reader, PR review/diff/check tabs, CI job/log views, replies, and explicit notification marking through the existing `gh` login. Installed at `~/.config/omarchy/plugins/tcballard.github/`. Super+Alt+I opens the panel.
+<p align="center">
+  <a href="https://github.com/tcballard/omarchy-badges"><img src="https://raw.githubusercontent.com/tcballard/omarchy-badges/75975e5b5bf75e7ede3764bcd2950046f7abfe2c/badges/v1/omarchy-plugin.svg" alt="Built for Omarchy: Plugin" height="24"></a>
+</p>
 
-## Install and update
+**Keep up with your repositories from your desktop.**
 
-The 0.4.0 workspace adds repository and star browsing, saved views, paginated
-lists, native code/README navigation, durable drafts, batch reviews, issue and
-workflow forms, native PR conflict resolution, and release/asset management. Start with **Repositories** or
-**Stars**, or use **Browse all / filter** from an attention section. See the
-[workspace guide](WORKSPACE_GUIDE.md) for the new workflows and their limits.
+A native GitHub panel for notifications, issues, pull requests and CI. Read a thread, inspect a diff, check a failing job or write a reply using your existing GitHub CLI login.
 
-Requires Omarchy with the Quickshell plugin API, Python 3, Git 2.38+ for conflict resolution, and GitHub CLI authenticated with `gh auth login --hostname github.com`. Your token must have access to the repositories and actions you use; inbox notifications additionally need notification access.
+## Everyday use
 
-Install from this repository on a new machine:
+The 0.4.0 workspace also brings repository and star browsing, saved views, durable drafts, release management and native PR conflict resolution. [Workspace guide →](WORKSPACE_GUIDE.md)
+
+Browse the dashboard or search for an issue or pull request. Open its reader for discussion, changes, review threads and checks. Actions such as posting, reviewing or merging have explicit review and confirmation steps. [Keyboard controls →](GUIDE.md#keyboard)
+
+## Install
+
+[Available in the Omarchy Plugin Marketplace](https://plugins.omarchy.org/plugin.html?id=tcballard.github).
+
+Omarchy with the Quickshell plugin API, Python 3, Git 2.38+ for conflict resolution, and GitHub CLI authenticated with `gh auth login --hostname github.com`. Your login needs access to the repositories and notifications you use.
 
 ```bash
 omarchy plugin add https://github.com/tcballard/omarchy-github-panel.git --enable
-omarchy-shell shell summon tcballard.github
 ```
 
-The repository is public. For a git-managed installation, update with `omarchy plugin update tcballard.github`. Installation does not create or replace keyboard shortcuts; this machine’s existing Super+Alt+I binding is retained.
+## Update and remove
 
-Remove the plugin with:
+Update:
+
+```bash
+omarchy plugin update tcballard.github
+```
+
+Remove:
 
 ```bash
 omarchy plugin remove tcballard.github
 ```
 
-Remove any shortcut you added separately. Removal leaves your GitHub CLI login and the dashboard cache at `$XDG_STATE_HOME/omarchy/github/dashboard.json` (normally `~/.local/state/omarchy/github/dashboard.json`) intact. Delete that cache separately if you no longer want its stored repository and notification metadata.
+## Marketplace status
 
-The panel launches bundled Python helpers, which invoke `gh` to access GitHub's API using your existing authentication. Dashboard refreshes run periodically while loaded; reader requests, searches, and confirmed management actions run on demand. The dashboard cache is written locally; reply drafts and workspace preferences are saved locally per verified account. Installation does not replace user configuration or create keyboard bindings. GitHub changes use your account permissions and require explicit UI actions and the documented confirmations.
+The marketplace-listed snapshot is **0.3.1**, commit [`6d84d58`](https://github.com/tcballard/omarchy-github-panel/commit/6d84d58a87f64e8bc8a00a406bd22d99aa30dca9), published on 22 September 2026. Its automated verification applies only to that exact commit and is not a security audit.
 
-The manifest keeps the original `tcballard.github` ID so existing configurations continue to work. Derived from the GitHub panel in [tcballard/omarchy PR #2](https://github.com/tcballard/omarchy/pull/2); the original Omarchy MIT license is included.
+The newer **0.4.0 workspace** is not covered by that verification. Normal install and update commands follow the current upstream branch, not the verified snapshot.
 
-Build a portable archive and SHA-256 checksum with `python3 scripts/package.py`. Archives contain only runtime files, the manifest, README and license; they exclude tests, caches and account data. Extract the plugin folder into `~/.config/omarchy/plugins/` on a machine without an existing installation of this ID, then run `omarchy plugin enable tcballard.github`.
+## A few useful details
 
-## Keyboard
+Installation does not add a shortcut. Open the panel with `omarchy-shell shell summon tcballard.github`, or add your own binding.
 
-In the dashboard:
+Dashboard metadata is cached locally; workspace preferences and reply drafts are saved per verified account. Removal keeps local data and your gh login. [Data and removal](GUIDE.md#install-and-update) · [Validation](VALIDATION.md)
 
-- Up/Down (K/J): choose a section when the section rail is focused. 1–6 jumps straight to a section’s items.
-- Tab/Shift+Tab: switch between the section rail and item list; the border marks the active area.
-- Up/Down (K/J): select a section or item in the active area.
-- Enter/Right (L): enter the item list from the section rail, or read the selected item. Left/Backspace (H) returns to the section rail; at the top level it closes the panel.
-- Home/End and PageUp/PageDown: navigate the item list.
-- /, F or Search: open GitHub search. Enter submits; Down enters results; P loads another page. Search results use the same reader and action menu.
-- N or New issue: create an issue in any repository you can access; the selected item’s repository is prefilled.
-- R: refresh. Escape: close the panel.
+Derived from the Omarchy GitHub panel; the original MIT licence is retained.
 
-In the reader:
+[Usage and development guide](GUIDE.md) · [Report a bug](https://github.com/tcballard/omarchy-github-panel/issues)
 
-- [ / ], Ctrl+Tab/Ctrl+Shift+Tab, or 1–9: switch detail tabs.
-- Up/Down (K/J): select workflow/job entries when present; otherwise scroll. Enter/Right opens the selected entry. PageUp/PageDown and Home/End scroll the thread, diff, or log.
-- Tab/Shift+Tab: move among visible, enabled controls inside the reader. Focus has an accent border; buttons inside long content scroll into view.
-- Enter/Space: activate the focused button.
-- A or Actions: open the item’s action menu. Up/Down selects; Enter/Right opens; Left/Backspace returns. Text fields retain their normal editing keys; Tab moves between fields and controls. Escape returns from a form.
-- C: compose a reply. R: refresh. Left/Backspace/Escape: previous view.
+[MIT licensed](LICENSE).
 
-In a reply:
+<!-- Preserve links to sections now in the guide. -->
+<a id="031--bounded-github-cli-output"></a>
+<a id="inline-code-review"></a>
+<a id="install-and-update"></a>
+<a id="keyboard"></a>
+<a id="native-lifecycle-actions"></a>
+<a id="search"></a>
+<a id="verification"></a>
 
-- Letters, arrows, shortcuts for editing, and Enter edit the text; Enter inserts a newline.
-- Tab/Shift+Tab move between the editor and controls.
-- Escape keeps the draft and returns to reading. Another Escape returns to the list.
-- Posting requires explicitly activating Post reply. Reply drafts are saved per verified account and restored after restarting the shell; see the workspace guide for persistence limits.
-
-## Verification
-
-Install test dependencies with `python3 -m pip install PyYAML==6.0.3 graphql-core==3.2.12 PySide6==6.11.2`, then run `tests/run` for the portable backend checks and archive build. Run `tests/keyboard` separately on a machine with Qt Quick Test installed for the keyboard and confirmation tests.
-
-`tests/keyboard` runs real Qt key/focus tests against Reader.qml. It substitutes only the Quickshell process wrapper and theme singletons because those plugins are linked into the Quickshell executable. All controls and event handling are real Qt Quick; no subprocesses or GitHub actions run.
-
-`python3 -m unittest discover -s tests -v` runs the helper tests. `python3 tests/live_reader.py` optionally reads real GitHub data through your existing login, without mutating anything.
-
-The native reader renders a restricted Markdown subset while escaping remote HTML. Source, diffs and logs remain selectable plain text. Some large review/file/log responses are capped with an explicit message. CI notifications without a run ID show recent repository runs and explain that limitation. PRs have Approve, Request changes, and Merge dialogs. Each shows the repository, number, source and target branch, commit, and current readiness. Reviews accept an optional approval note or required change-request note. Merging offers only repository-enabled methods. The backend rechecks head SHA, target branch, state, and account permissions before submitting; merge requests also carry GitHub's SHA precondition. Direct merges respect GitHub rules. The Actions menu additionally supports enabling/disabling auto-merge and joining/leaving a merge queue, with separate explicit confirmation. It never bypasses queue ordering, uses admin merge overrides, or deletes the source branch.
-
-PR writes are tested with a fake transport; the Qt confirmation tests only emit captured requests. No live approvals or merges are performed by tests.
-
-## Native lifecycle actions
-
-- PRs: approve, request changes, merge, request user/team reviewers, mark drafts ready, update the branch, close/reopen, manage labels/assignees, enable/disable auto-merge, and join/leave the merge queue when supported. Details show requested reviewers, auto-merge method, queue position and state. Auto-merge is a persistent GitHub setting and can apply to subsequent commits under GitHub’s rules; the confirmation explains this.
-- Issues: create, edit title/description, replace labels/assignees, and close as completed or reopen. Lists accept one name per line, including label names with spaces; empty lists remove all entries. New issues open in the reader after creation.
-- CI: rerun all jobs, rerun failed jobs, rerun the current job and its dependents, or cancel an active workflow. These are offered from run details and completed job logs according to run state.
-
-Every lifecycle action has a review/confirmation step. Confirmation defaults focus to Back. Submitting locks the dialog against duplicate activation; failures require closing and refreshing before retrying. Write requests use the existing GitHub login and surface GitHub permission/rules errors. The backend re-reads issue contents/metadata, PR head/base/state, or workflow attempt/status and rejects changed snapshots. APIs with head preconditions receive the confirmed SHA. Other REST edits have a preflight check but no atomic compare-and-swap, so a concurrent edit in the final request window remains possible.
-
-Backend tests use mocked transports for every write path, and Qt tests exercise menu navigation, text editing, review/confirmation, snapshot binding, and duplicate-submit prevention. Live smoke checks only read GitHub data. Queue actions are verified against the live schema and mocked mutations; they require a repository with a configured merge queue to use.
-
-## Search
-
-Search covers issues and pull requests visible to your GitHub account, beyond the dashboard’s attention signals. Filter by repository, issue/PR type, and open/closed/merged state. Queries accept GitHub qualifiers, for example `label:bug`, `author:alice`, `review-requested:@me`, or `repo:owner/name`. Account qualifiers using `@me` resolve through the current login. Filters combine with the entire query, including OR expressions.
-
-Results are sorted by latest update, loaded 50 at a time, and capped at GitHub’s 1,000-result search limit. Use Load more or P to fetch another page. Incomplete results, rate limits and permission errors appear in the search view. Submitting a newer query discards older in-flight responses. Search runs only when submitted, and its results are not written to disk.
-
-## Inline code review
-
-In a PR’s Changes tab, Up/Down selects changed files. Enter/Right opens Comment on line; choose a numbered New (right) or Old (left) diff line, write the comment, then review and confirm. Comments are submitted immediately as individual inline review comments, rather than collected into a pending batch review. Binary or unavailable patches cannot receive a line comment. Displayed lines include L/R numbers matching the selector.
-
-The Threads tab groups inline conversations and marks them resolved, unresolved and/or outdated. Select a thread with Up/Down, then Enter/Right to resolve or reopen it. The confirmation checks current GitHub permissions, the PR head/base, thread membership and whether the loaded comments or resolution changed. Each read shows up to 100 threads and 100 comments per thread; oversized threads cannot be resolved from a partial conversation. GitHub does not offer an atomic comment-version precondition for thread resolution, so another reply in the final request window remains possible.
-
-Inline comments bind the confirmed commit and a line from a freshly fetched patch. These controls reuse the explicit confirmation and duplicate-submit protection used by other actions. Tests use mocked write responses; live verification only reads GitHub data.
-
-
-### 0.3.1 — bounded GitHub CLI output
-
-Both dashboard and reader requests stream stdout and stderr with hard byte ceilings (4 MiB and 8 KiB respectively). Overflow produces a response-limit error; timeouts remain 25 seconds for dashboard requests and 40 seconds for reader requests. The helper kills the isolated request process group and reaps the direct child on overflow or deadline. Request input is written concurrently so large payloads cannot block output collection. No failed write is automatically retried.
-
-The portable suite includes real local child-process regressions for these limits and cleanup, without contacting GitHub. See [validation notes](VALIDATION.md).
+[Looking for the previous detailed sections? Open the full guide →](GUIDE.md)
