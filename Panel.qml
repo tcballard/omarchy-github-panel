@@ -266,6 +266,7 @@ Item {
 
   FloatingWindow {
     id: window
+    visible: false
     title: "Omarchy GitHub"
     color: root.background
     implicitWidth: 1180
