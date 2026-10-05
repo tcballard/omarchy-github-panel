@@ -225,7 +225,8 @@ Popup {
               Button { text: "Browse choices"; enabled: !picker.running; onClicked: root.pick(modelData.key,false) }
               Button { text: "Next choices"; visible: !!root.candidates[modelData.key] && root.candidates[modelData.key].more; enabled: !picker.running; onClicked: root.pick(modelData.key,true) }
             }
-            ComboBox {
+            PlainTextComboBox {
+              objectName: "picker_" + modelData.key
               Layout.fillWidth: true
               visible: !!root.candidates[modelData.key]
               textRole: "label"
@@ -237,8 +238,9 @@ Popup {
                 currentIndex = 0
               }
             }
-            ComboBox {
+            PlainTextComboBox {
               id: methodChooser
+              objectName: "options_" + modelData.key
               Layout.fillWidth: true
               visible: !!modelData.options
               model: modelData.options || []
@@ -246,7 +248,8 @@ Popup {
               onActivated: root.setValue(modelData.key, currentText)
               Accessible.name: modelData.label
             }
-            ComboBox {
+            PlainTextComboBox {
+              objectName: "suggestions_" + modelData.key
               Layout.fillWidth: true
               visible: !!modelData.suggestions
               model: ["Insert a suggestion…"].concat(modelData.suggestions || [])
