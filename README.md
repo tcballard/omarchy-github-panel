@@ -42,9 +42,11 @@ omarchy plugin remove tcballard.github
 
 ## Marketplace status
 
-The marketplace-listed snapshot is **0.3.1**, commit [`6d84d58`](https://github.com/tcballard/omarchy-github-panel/commit/6d84d58a87f64e8bc8a00a406bd22d99aa30dca9), published on 22 September 2026. Its automated verification applies only to that exact commit and is not a security audit.
+The marketplace-listed snapshot is **0.4.0**, commit [`54543d31f5363e5bd0c4eab2735272a6ace7a4a9`](https://github.com/tcballard/omarchy-github-panel/commit/54543d31f5363e5bd0c4eab2735272a6ace7a4a9), published and re-verified on **5 October 2026**. See the [review and publication record](https://github.com/omacom/omarchy-plugin-marketplace/issues/8159).
 
-The newer **0.4.0 workspace** is not covered by that verification. Normal install and update commands follow the current upstream branch, not the verified snapshot.
+Automated verification applies only to that exact snapshot. It is not a security audit, a guarantee covering later changes, or evidence of live-desktop acceptance for the 0.4.0 changes.
+
+Normal install and update commands follow the current upstream branch and are not pinned to the verified snapshot.
 
 ## A few useful details
 
