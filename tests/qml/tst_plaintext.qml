@@ -11,12 +11,38 @@ Item {
   readonly property string hostile: '<img src="' + pixelUrl + '"> & <b>literal</b>'
   Plugin.ActionsDialog { id: dialog; parent: host }
   Component { id: imageProbe; Image {} }
+  Component { id: previewComponent; Plugin.ImagePreview { width: 800 } }
   TestCase {
     name: "PlainTextChoices"
     when: windowShown
     SignalSpy { id: submissions; target: dialog; signalName: "submitted" }
     function init() { dialog.sending = false; dialog.close(); submissions.clear() }
     function cleanup() { dialog.sending = false; dialog.close() }
+    function test_image_label_does_not_load_before_click() {
+      var entry = typeof testImageEntry !== "undefined" ? testImageEntry : {label:host.hostile,url:host.pixelUrl.replace("pixel.png","preview.png")}
+      var view = createTemporaryObject(previewComponent, host, {entry:entry})
+      verify(view)
+      var button = findChild(view, "loadImage")
+      var preview = findChild(view, "previewImage")
+      verify(button); verify(preview)
+      wait(100)
+      compare(button.contentItem.textFormat, Text.PlainText)
+      compare(button.contentItem.text, "Load image: " + entry.label)
+      compare(view.entry.label, host.hostile)
+      verify(!view.loaded); compare(preview.source.toString(), "")
+      if (typeof requestMonitor === "undefined") return
+      compare(requestMonitor.paths().length, 0, "Creating a preview button must not request any image")
+      mouseClick(button, button.width / 2, button.height / 2)
+      tryCompare(preview, "status", Image.Ready)
+      verify(view.loaded); compare(preview.source.toString(), entry.url)
+      compare(button.contentItem.text, "Hide image")
+      compare(JSON.stringify(requestMonitor.paths()), '["/preview.png"]')
+      mouseClick(button, button.width / 2, button.height / 2)
+      verify(!view.loaded); compare(preview.source.toString(), "")
+      compare(button.contentItem.text, "Load image: " + entry.label)
+      wait(100)
+      compare(JSON.stringify(requestMonitor.paths()), '["/preview.png"]')
+    }
     function test_network_monitor_positive_control() {
       if (typeof testPixelUrl === "undefined") skip("HTTP monitor is provided by tests/plaintext_runner.py")
       var probe = createTemporaryObject(imageProbe, host, {source: pixelUrl.replace("pixel.png", "control.png")})
