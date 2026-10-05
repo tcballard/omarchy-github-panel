@@ -9,7 +9,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ['manifest.json', 'LICENSE', 'README.md', 'GUIDE.md', 'docs/images/github-xps-familiar.png', 'Panel.qml', 'Reader.qml',
-         'Service.qml', 'ActionsDialog.qml', 'PRActionDialog.qml', 'SearchBar.qml',
+         'Service.qml', 'ActionsDialog.qml', 'PlainTextComboBox.qml', 'PRActionDialog.qml', 'SearchBar.qml',
          'bounded_process.py', 'github_client.py', 'reader_client.py', 'lifecycle.py', 'search_client.py', 'review_threads.py',
          'conflict_workspace.py', 'workspace.py', 'workspace_actions.py', 'review_workspace.py', 'authoring.py', 'navigation.py',
          'desk_protocol.py', 'local_state.py', 'markup.py', 'transfers.py', 'ImagePreview.qml', 'WORKSPACE_GUIDE.md']
