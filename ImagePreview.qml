@@ -9,12 +9,24 @@ ColumnLayout {
   property bool loaded: false
   Layout.fillWidth: true
   Button {
+    id: loadButton
+    objectName: "loadImage"
     text: root.loaded ? "Hide image" : "Load image: " + root.entry.label
     Accessible.name: text
+    contentItem: Text {
+      text: loadButton.text
+      textFormat: Text.PlainText
+      font: loadButton.font
+      color: loadButton.palette.buttonText
+      horizontalAlignment: Text.AlignHCenter
+      verticalAlignment: Text.AlignVCenter
+      elide: Text.ElideRight
+    }
     onClicked: root.loaded = !root.loaded
   }
   Image {
     id: preview
+    objectName: "previewImage"
     Layout.fillWidth: true
     Layout.preferredHeight: visible ? Math.min(400, implicitHeight || 250) : 0
     visible: root.loaded
